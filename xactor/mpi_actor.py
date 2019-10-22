@@ -15,8 +15,7 @@ __all__ = [
     "WORLD_SIZE",
     "WORLD_RANK",
     "MASTER_RANK",
-    "RANK_AID_FMT",
-    "MAIN_AID",
+    "RANK_AID",
 ]
 
 import logging
@@ -33,8 +32,7 @@ WORLD_RANK = COMM_WORLD.Get_rank()
 WORLD_SIZE = COMM_WORLD.Get_size()
 MASTER_RANK = 0
 
-RANK_AID_FMT = "rank-%d"
-MAIN_AID = "main"
+RANK_AID = "rank"
 
 log = logging.getLogger("%s.%d" % (__name__, WORLD_RANK))
 
@@ -99,15 +97,15 @@ get_nodes = _NODE_RANKS.get_nodes
 get_node_ranks = _NODE_RANKS.get_node_ranks
 
 
-class MPIProcess:
-    """MPI Process.
+class MPIRankActor:
+    """MPI Rank Actor.
 
     Container for actors that runs on the current rank.
     """
 
     def __init__(self):
         self.acomm = AsyncCommunicator()
-        self.local_actors = {RANK_AID_FMT % WORLD_RANK: self}
+        self.local_actors = {RANK_AID: self}
 
         self.stopping = False
 
@@ -173,6 +171,8 @@ class MPIProcess:
             actor_ids: IDs of local actors to be deleted
         """
         for actor_id in actor_ids:
+            if actor_id == RANK_AID:
+                raise RuntimeError("Can't delete the rank actor.")
             try:
                 del self.local_actors[actor_id]
             except KeyError:
@@ -193,12 +193,13 @@ class MPIProcess:
             )
 
         for actor_id, dst_rank in zip(actor_ids, dst_ranks):
+            if actor_id == RANK_AID:
+                raise RuntimeError("Can't send the rank actor.")
             if actor_id not in self.local_actors:
                 raise RuntimeError("Actor with ID %s doesn't exist" % actor_id)
 
-            dst_id = RANK_AID_FMT % dst_rank
             actor = self.local_actors[actor_id]
-            msg = Message(dst_id, "receive_actor", actor_id, actor)
+            msg = Message(RANK_AID, "receive_actor", actor_id, actor)
             self.acomm.send(dst_rank, msg)
 
         self.acomm.flush()
@@ -210,19 +211,23 @@ class MPIProcess:
 
         self.local_actors[actor_id] = actor
 
-    def start(self, cls, *args, **kwargs):
+    def start(self, actor_id, cls, *args, **kwargs):
         """Start the MPI process.
 
         Parameters
         ----------
+            actor_id: ID of the main actor.
             cls: The main class, instantiated and its `main' method executed on MASTER_RANK
             *arg: Positional arguments for the class
             **kwargs: Keyword arguments for the class
         """
         if WORLD_RANK == MASTER_RANK:
-            self.create_actor(MAIN_AID, cls, args, kwargs)
+            if actor_id in self.local_actors:
+                raise RuntimeError("Actor with ID %s already exists" % actor_id)
 
-            msg = Message(MAIN_AID, "main")
+            self.create_actor(actor_id, cls, args, kwargs)
+
+            msg = Message(actor_id, "main")
             self.acomm.send(MASTER_RANK, msg)
             self.acomm.flush()
 
@@ -231,8 +236,7 @@ class MPIProcess:
     def stop(self):
         """Stop all MPI Processes."""
         for rank in range(WORLD_SIZE):
-            dst_id = RANK_AID_FMT % rank
-            msg = Message(dst_id, "_stop")
+            msg = Message(RANK_AID, "_stop")
             self.acomm.send(rank, msg)
 
         self.acomm.flush()
@@ -260,9 +264,9 @@ class MPIProcess:
         COMM_WORLD.Barrier()
 
 
-_MPI_PROCESS = MPIProcess()
-start = _MPI_PROCESS.start
-stop = _MPI_PROCESS.stop
-send = _MPI_PROCESS.send
-flush = _MPI_PROCESS.flush
-barrier = _MPI_PROCESS.barrier
+_MPI_RANK_ACTOR = MPIRankActor()
+start = _MPI_RANK_ACTOR.start
+stop = _MPI_RANK_ACTOR.stop
+send = _MPI_RANK_ACTOR.send
+flush = _MPI_RANK_ACTOR.flush
+barrier = _MPI_RANK_ACTOR.barrier

@@ -1,6 +1,6 @@
 """Simple xactor test."""
 
-from xactor.mpi_actor import Message, get_nodes, get_node_ranks, send, flush, start, stop
+import xactor.mpi_actor as xa
 
 class Greeter:
     def __init__(self, name):
@@ -10,22 +10,21 @@ class Greeter:
         print("Greetings to %s from %s" % (name, self.name))
 
     def main(self):
-        for node in get_nodes():
-            for rank in get_node_ranks(node):
-                rank_id = "rank-%d" % rank
+        for node in xa.get_nodes():
+            for rank in xa.get_node_ranks(node):
                 greeter_id = "greeter-%d" % rank
-                msg = Message(rank_id, "create_actor",  greeter_id, Greeter, args=(greeter_id,))
-                send(rank, msg, flush=False)
-        flush()
+                msg = xa.Message(xa.RANK_AID, "create_actor",  greeter_id, Greeter, args=(greeter_id,))
+                xa.send(rank, msg)
+        xa.flush()
 
-        for node in get_nodes():
-            for rank in get_node_ranks(node):
+        for node in xa.get_nodes():
+            for rank in xa.get_node_ranks(node):
                 greeter_id = "greeter-%d" % rank
-                msg = Message(greeter_id, "greet", "World")
-                send(rank, msg, flush=False)
-        flush()
+                msg = xa.Message(greeter_id, "greet", "World")
+                xa.send(rank, msg, flush=False)
+        xa.flush()
 
-        stop()
+        xa.stop()
 
 def test_greeter():
-    start(Greeter, "main")
+    xa.start("main_actor", Greeter, "main")
