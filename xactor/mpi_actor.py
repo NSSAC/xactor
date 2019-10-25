@@ -34,7 +34,7 @@ MASTER_RANK = 0
 
 RANK_AID = "rank"
 
-log = logging.getLogger("%s.%d" % (__name__, WORLD_RANK))
+LOG = logging.getLogger("%s.%d" % (__name__, WORLD_RANK))
 
 
 @dataclass(init=False)
@@ -111,7 +111,7 @@ class MPIRankActor:
 
     def _loop(self):
         """Loop through messages."""
-        log.info("Starting rank loop with %d actors", len(self.local_actors))
+        LOG.info("Starting rank loop with %d actors", len(self.local_actors))
 
         while not self.stopping:
             message = self.acomm.recv()
@@ -122,7 +122,7 @@ class MPIRankActor:
             try:
                 method = getattr(actor, message.method)
             except AttributeError:
-                log.exception(
+                LOG.exception(
                     "Target actor doesn't have requested method: %r, %r", actor, message
                 )
                 raise
@@ -130,14 +130,14 @@ class MPIRankActor:
             try:
                 method(*message.args, **message.kwargs)
             except Exception:  # pylint: disable=broad-except
-                log.exception(
+                LOG.exception(
                     "Exception occured while processing message: %r, %r", actor, message
                 )
                 raise
 
     def _stop(self):
         """Stop the event loop after processing the current message."""
-        log.info("Received stop message")
+        LOG.info("Received stop message.")
 
         self.acomm.finish()
         self.stopping = True
