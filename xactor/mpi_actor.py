@@ -32,7 +32,7 @@ WORLD_RANK = COMM_WORLD.Get_rank()
 WORLD_SIZE = COMM_WORLD.Get_size()
 MASTER_RANK = 0
 
-RANK_AID = "rank"
+RANK_ACTOR_ID = "rank-actor"
 
 LOG = logging.getLogger("%s.%d" % (__name__, WORLD_RANK))
 
@@ -105,7 +105,7 @@ class MPIRankActor:
 
     def __init__(self):
         self.acomm = AsyncCommunicator()
-        self.local_actors = {RANK_AID: self}
+        self.local_actors = {RANK_ACTOR_ID: self}
 
         self.stopping = False
 
@@ -171,7 +171,7 @@ class MPIRankActor:
             actor_ids: IDs of local actors to be deleted
         """
         for actor_id in actor_ids:
-            if actor_id == RANK_AID:
+            if actor_id == RANK_ACTOR_ID:
                 raise RuntimeError("Can't delete the rank actor.")
             try:
                 del self.local_actors[actor_id]
@@ -193,13 +193,13 @@ class MPIRankActor:
             )
 
         for actor_id, dst_rank in zip(actor_ids, dst_ranks):
-            if actor_id == RANK_AID:
+            if actor_id == RANK_ACTOR_ID:
                 raise RuntimeError("Can't send the rank actor.")
             if actor_id not in self.local_actors:
                 raise RuntimeError("Actor with ID %s doesn't exist" % actor_id)
 
             actor = self.local_actors[actor_id]
-            msg = Message(RANK_AID, "receive_actor", actor_id, actor)
+            msg = Message(RANK_ACTOR_ID, "receive_actor", actor_id, actor)
             self.acomm.send(dst_rank, msg)
 
         self.acomm.flush()
@@ -236,7 +236,7 @@ class MPIRankActor:
     def stop(self):
         """Stop all MPI Processes."""
         for rank in range(WORLD_SIZE):
-            msg = Message(RANK_AID, "_stop")
+            msg = Message(RANK_ACTOR_ID, "_stop")
             self.acomm.send(rank, msg)
 
         self.acomm.flush()
