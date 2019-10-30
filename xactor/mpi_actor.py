@@ -5,17 +5,16 @@ Provides a rudimentary classical Actor model implementation on top of MPI.
 
 __all__ = [
     "Message",
-    "get_nodes",
-    "get_node_ranks",
+    "nodes",
+    "ranks",
+    "node_ranks",
+    "current_rank",
     "start",
     "stop",
     "send",
     "flush",
-    "barrier",
-    "WORLD_SIZE",
-    "WORLD_RANK",
     "MASTER_RANK",
-    "RANK_AID",
+    "RANK_ACTOR_ID",
 ]
 
 import logging
@@ -61,13 +60,13 @@ class NodeRanks:
         """Initialize."""
         rank_nodes = COMM_WORLD.allgather(HOSTNAME)
 
-        node_ranks = defaultdict(list)
+        node_ranks_ = defaultdict(list)
         for rank, hostname in enumerate(rank_nodes):
-            node_ranks[hostname].append(rank)
-        nodes = sorted(node_ranks)
+            node_ranks_[hostname].append(rank)
+        nodes_ = sorted(node_ranks_)
 
-        self.nodes = nodes
-        self.node_ranks = dict(node_ranks)
+        self.nodes_ = nodes_
+        self.node_ranks_ = dict(node_ranks_)
 
     def get_nodes(self):
         """Return the nodes running xactor.
@@ -76,7 +75,7 @@ class NodeRanks:
         -------
             nodes: list of node names
         """
-        return self.nodes
+        return self.nodes_
 
     def get_node_ranks(self, node):
         """Return the ranks on the currnet node.
@@ -89,12 +88,32 @@ class NodeRanks:
         -------
             ranks: list of ranks running on the given node.
         """
-        return self.node_ranks[node]
+        return self.node_ranks_[node]
 
 
 _NODE_RANKS = NodeRanks()
-get_nodes = _NODE_RANKS.get_nodes
-get_node_ranks = _NODE_RANKS.get_node_ranks
+nodes = _NODE_RANKS.get_nodes
+node_ranks = _NODE_RANKS.get_node_ranks
+
+
+def ranks():
+    """Return an iterable of all ranks running xactor.
+
+    Returns
+    -------
+        ranks: an iterable of node ranks
+    """
+    return range(WORLD_SIZE)
+
+
+def current_rank():
+    """Return the rank of current process.
+
+    Returns
+    -------
+        rank: rank of the current process
+    """
+    return WORLD_RANK
 
 
 class MPIRankActor:
@@ -246,22 +265,23 @@ class MPIRankActor:
 
         Parameters
         ----------
-            rank: Destination rank
+            rank: Destination rank; If -1 messsage is sent to all ranks
             message: Message to be sent
-            flush: If true ensure that any send buffers are flushed
+            flush: If true the message is sent immediately and any send buffers are flushed
         """
-        self.acomm.send(rank, message)
-        if flush:
-            self.acomm.flush()
+        if rank < 0:
+            ranks_ = range(WORLD_SIZE)
+        else:
+            ranks_ = [rank]
+
+        for rank_ in ranks_:
+            self.acomm.send(rank_, message)
+            if flush:
+                self.acomm.flush()
 
     def flush(self):
         """Flush any send buffers."""
         self.acomm.flush()
-
-    @staticmethod
-    def barrier():
-        """Perform a barrier synchornization."""
-        COMM_WORLD.Barrier()
 
 
 _MPI_RANK_ACTOR = MPIRankActor()
@@ -269,4 +289,3 @@ start = _MPI_RANK_ACTOR.start
 stop = _MPI_RANK_ACTOR.stop
 send = _MPI_RANK_ACTOR.send
 flush = _MPI_RANK_ACTOR.flush
-barrier = _MPI_RANK_ACTOR.barrier
