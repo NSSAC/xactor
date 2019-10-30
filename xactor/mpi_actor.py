@@ -197,39 +197,6 @@ class MPIRankActor:
             except KeyError:
                 raise RuntimeError("Actor with ID %s doesn't exist" % actor_id)
 
-    def send_actors(self, actor_ids, dst_ranks):
-        """Send the local actors to MPI Processes on the destination ranks.
-
-        Parameters
-        ----------
-            actor_ids: IDs of local actors to be moved out
-            dst_ranks: Ranks to which the actors are to be sent
-        """
-        if not len(actor_ids) == len(dst_ranks):
-            raise ValueError(
-                "len(actor_ids) = (%d) != len(dst_ranks) (%d)"
-                % (len(actor_ids), len(dst_ranks))
-            )
-
-        for actor_id, dst_rank in zip(actor_ids, dst_ranks):
-            if actor_id == RANK_ACTOR_ID:
-                raise RuntimeError("Can't send the rank actor.")
-            if actor_id not in self.local_actors:
-                raise RuntimeError("Actor with ID %s doesn't exist" % actor_id)
-
-            actor = self.local_actors[actor_id]
-            msg = Message(RANK_ACTOR_ID, "receive_actor", actor_id, actor)
-            self.acomm.send(dst_rank, msg)
-
-        self.acomm.flush()
-
-    def receive_actor(self, actor_id, actor):
-        """Receive an actor another MPI Process."""
-        if actor_id in self.local_actors:
-            raise RuntimeError("Actor with ID %s already exists" % actor_id)
-
-        self.local_actors[actor_id] = actor
-
     def start(self, actor_id, cls, *args, **kwargs):
         """Start the MPI process.
 
