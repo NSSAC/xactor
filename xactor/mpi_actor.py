@@ -227,24 +227,33 @@ class MPIRankActor:
 
         self.acomm.flush()
 
-    def send(self, rank, message, flush=True):  # pylint: disable=redefined-outer-name
+    def send(self, message, rank=None, nodewise=False, flush=True): #pylint: disable=redefined-outer-name
         """Send a message to the given rank.
 
         Parameters
         ----------
-            rank: Destination rank; If -1 messsage is sent to all ranks
             message: Message to be sent
-            flush: If true the message is sent immediately and any send buffers are flushed
+            rank: Destination rank; if None (default) the message is sent to all nodes
+            nodewise: If rank is not none and nodewise is true, message is sent to that rank-th process on every node
+            flush: If true (default) all send buffers are flushed immediately
         """
-        if rank < 0:
+        if rank is None:
             ranks_ = range(WORLD_SIZE)
         else:
-            ranks_ = [rank]
+            if nodewise:
+                ranks_ = []
+                for n in nodes():
+                    nrs = node_ranks(n)
+                    r = nrs[rank % len(nrs)]
+                    ranks_.append(r)
+            else:
+                ranks_ = [rank]
 
         for rank_ in ranks_:
             self.acomm.send(rank_, message)
-            if flush:
-                self.acomm.flush()
+
+        if flush:
+            self.acomm.flush()
 
     def flush(self):
         """Flush any send buffers."""
