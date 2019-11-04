@@ -31,7 +31,7 @@ WORLD_RANK = COMM_WORLD.Get_rank()
 WORLD_SIZE = COMM_WORLD.Get_size()
 MASTER_RANK = 0
 
-RANK_ACTOR_ID = "rank-actor"
+RANK_ACTOR_ID = "_rank_actor"
 
 LOG = logging.getLogger("%s.%d" % (__name__, WORLD_RANK))
 
