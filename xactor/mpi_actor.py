@@ -40,14 +40,12 @@ LOG = logging.getLogger("%s.%d" % (__name__, WORLD_RANK))
 class Message:
     """A Message."""
 
-    actor_id: str
     method: str
     args: list
     kwargs: dict
 
-    def __init__(self, actor_id, method, *args, **kwargs):
+    def __init__(self, method, *args, **kwargs):
         """Construct the message."""
-        self.actor_id = actor_id
         self.method = method
         self.args = args
         self.kwargs = kwargs
@@ -133,11 +131,11 @@ class MPIRankActor:
         LOG.info("Starting rank loop with %d actors", len(self.local_actors))
 
         while not self.stopping:
-            message = self.acomm.recv()
-            if message.actor_id not in self.local_actors:
+            actor_id, message = self.acomm.recv()
+            if actor_id not in self.local_actors:
                 raise RuntimeError("Message received for non-local actor: %r" % message)
 
-            actor = self.local_actors[message.actor_id]
+            actor = self.local_actors[actor_id]
             try:
                 method = getattr(actor, message.method)
             except AttributeError:
@@ -213,8 +211,8 @@ class MPIRankActor:
 
             self.create_actor(actor_id, cls, args, kwargs)
 
-            msg = Message(actor_id, "main")
-            self.acomm.send(MASTER_RANK, msg)
+            msg = Message("main")
+            self.acomm.send(MASTER_RANK, (actor_id, msg))
             self.acomm.flush()
 
         self._loop()
@@ -222,25 +220,26 @@ class MPIRankActor:
     def stop(self):
         """Stop all MPI Processes."""
         for rank in range(WORLD_SIZE):
-            msg = Message(RANK_ACTOR_ID, "_stop")
-            self.acomm.send(rank, msg)
+            msg = Message("_stop")
+            self.acomm.send(rank, (RANK_ACTOR_ID,  msg))
 
         self.acomm.flush()
 
-    def send(self, message, rank=None, nodewise=False, flush=True): #pylint: disable=redefined-outer-name
+    def send(self, rank, actor_id, message, everynode=False, immediate=True): #pylint: disable=redefined-outer-name
         """Send a message to the given rank.
 
         Parameters
         ----------
+            actor_id: Actor to whom the message is to be sent
             message: Message to be sent
             rank: Destination rank; if None (default) the message is sent to all nodes
-            nodewise: If rank is not none and nodewise is true, message is sent to that rank-th process on every node
-            flush: If true (default) all send buffers are flushed immediately
+            everynode: If rank is not none and everynode is true, message is sent to that rank-th process on every node
+            immediate: If true (default) all send buffers are flushed immediately
         """
-        if rank is None:
+        if rank == -1:
             ranks_ = range(WORLD_SIZE)
         else:
-            if nodewise:
+            if everynode:
                 ranks_ = []
                 for n in nodes():
                     nrs = node_ranks(n)
@@ -250,9 +249,9 @@ class MPIRankActor:
                 ranks_ = [rank]
 
         for rank_ in ranks_:
-            self.acomm.send(rank_, message)
+            self.acomm.send(rank_, (actor_id, message))
 
-        if flush:
+        if immediate:
             self.acomm.flush()
 
     def flush(self):
