@@ -133,7 +133,7 @@ class MPIRankActor:
         while not self.stopping:
             actor_id, message = self.acomm.recv()
             if actor_id not in self.local_actors:
-                raise RuntimeError("Message received for non-local actor: %r" % message)
+                raise RuntimeError("Message received for non-local actor: %r" % actor_id)
 
             actor = self.local_actors[actor_id]
             try:
