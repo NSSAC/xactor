@@ -10,18 +10,12 @@ class Greeter:
         print("Greetings to %s from %s" % (name, self.name))
 
     def main(self):
-        for node in xa.nodes():
-            for rank in xa.node_ranks(node):
-                greeter_id = "greeter-%d" % rank
-                msg = xa.Message(xa.RANK_ACTOR_ID, "create_actor",  greeter_id, Greeter, args=(greeter_id,))
-                xa.send(rank, msg)
-        xa.flush()
+        greeter_id = "greeter"
 
-        for node in xa.nodes():
-            for rank in xa.node_ranks(node):
-                greeter_id = "greeter-%d" % rank
-                msg = xa.Message(greeter_id, "greet", "world")
-                xa.send(rank, msg, flush=False)
+        xa.create_actor(xa.EVERY_RANK, greeter_id, Greeter, greeter_id)
+
+        msg = xa.Message("greet", "world")
+        xa.send(xa.EVERY_RANK, greeter_id, msg, immediate=False)
         xa.flush()
 
         xa.stop()
