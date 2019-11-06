@@ -3,19 +3,15 @@
 import xactor.mpi_actor as xa
 
 class Greeter:
-    def __init__(self, name):
-        self.name = name
-
     def greet(self, name):
-        print("Greetings to %s from %s" % (name, self.name))
+        print("Greetings to %s from %s" % (xa.current_rank(), name))
 
 class Main:
     def main(self):
         # Create the greeters on very rank
         greeter_id = "greeter"
-        name = "greeter-%d"
         for rank in xa.ranks():
-            xa.create_actor(rank, greeter_id, Greeter, name % rank)
+            xa.create_actor(rank, greeter_id, Greeter)
 
         # Send them the greet message
         msg = xa.Message("greet", "world")

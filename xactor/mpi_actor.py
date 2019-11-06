@@ -121,7 +121,7 @@ class MPIRankActor:
 
     def _stop(self):
         """Stop the event loop after processing the current message."""
-        LOG.info("Received stop message.")
+        LOG.info("Received stop message")
 
         self.acomm.finish()
         self.stopping = True
