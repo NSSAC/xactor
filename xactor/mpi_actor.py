@@ -17,6 +17,7 @@ __all__ = [
     "delete_actors",
     "MASTER_RANK",
     "EVERY_RANK",
+    "getLogger",
 ]
 
 import logging
@@ -40,8 +41,12 @@ RANK_ACTOR_ID = "_rank_actor"
 _MPI_RANK_ACTOR = None
 _NODE_RANKS = None
 
-LOG = logging.getLogger("%s.%d" % (__name__, WORLD_RANK))
+def getLogger(name):
+    """Return a logger with the given name and the world rank attached to it."""
+    name = "%s.%d" % (name, WORLD_RANK)
+    return logging.getLogger(name)
 
+LOG = getLogger(__name__)
 
 @dataclass(init=False)
 class Message:
