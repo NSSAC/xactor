@@ -22,7 +22,7 @@ class Main:
 
 def test_greeter():
     # Create the main actor
-    xa.start("main_actor", Main)
+    xa.start("main", Main)
 
 if __name__ == "__main__":
     test_greeter()
