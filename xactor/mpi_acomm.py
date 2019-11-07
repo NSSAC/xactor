@@ -1,5 +1,6 @@
 """MPI Async Communication Interface."""
 
+import os
 import pickle
 import logging
 import queue
@@ -12,7 +13,10 @@ COMM_WORLD = MPI.COMM_WORLD
 WORLD_RANK = COMM_WORLD.Get_rank()
 WORLD_SIZE = COMM_WORLD.Get_size()
 
-BUFFER_SIZE = 4194304  # 4MB
+if "XACTOR_BUFFER_SIZE" in os.environ:
+    BUFFER_SIZE = int(os.environ["XACTOR_BUFFER_SIZE"])
+else:
+    BUFFER_SIZE = 4194304  # 4MB
 HEADER_SIZE = 4096
 
 MAX_MESSAGE_SIZE = BUFFER_SIZE - HEADER_SIZE
@@ -67,8 +71,10 @@ class AsyncBufferedSender:
         """Send a messge."""
         pkl = pickle.dumps(msg, pickle.HIGHEST_PROTOCOL)
         pkl_len = len(pkl)
+        if pkl_len > MAX_MESSAGE_SIZE:
+            raise ValueError("Message too large %d > %d" % (pkl_len, MAX_MESSAGE_SIZE))
 
-        if self.buffer_size[to] + pkl_len < MAX_MESSAGE_SIZE:
+        if self.buffer_size[to] + pkl_len <= MAX_MESSAGE_SIZE:
             self.buffer[to].append(pkl)
             self.buffer_size[to] += pkl_len
             return
