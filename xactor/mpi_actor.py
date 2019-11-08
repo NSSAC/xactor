@@ -259,15 +259,19 @@ def start(actor_id, cls, *args, **kwargs):
             _MPI_RANK_ACTOR.create_actor(actor_id, cls, args, kwargs)
 
             if __debug__:
-                LOG.debug("Scheduling 'main' message for main actor '%s' on %d", actor_id, MASTER_RANK)
+                LOG.debug(
+                    "Scheduling 'main' message for main actor '%s' on %d",
+                    actor_id,
+                    MASTER_RANK,
+                )
             message = Message("main")
             _MPI_RANK_ACTOR.send(MASTER_RANK, actor_id, message)
             _MPI_RANK_ACTOR.flush()
 
         _MPI_RANK_ACTOR._loop()  # pylint: disable=protected-access
-    except:
+    except:  # pylint: disable=bare-except
         LOG.exception("Uncaught exception")
-        raise
+        COMM_WORLD.Abort(1)
 
 
 def stop():
