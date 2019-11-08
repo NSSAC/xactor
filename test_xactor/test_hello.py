@@ -1,5 +1,6 @@
 """Hello World in XActor."""
 
+import logging
 import xactor.mpi_actor as xa
 
 class Greeter:
@@ -14,7 +15,7 @@ class Main:
             xa.create_actor(rank, greeter_id, Greeter)
 
         # Send them the greet message
-        msg = xa.Message("greet", "world")
+        msg = xa.Message("greet", ["world"])
         xa.send(xa.EVERY_RANK, greeter_id, msg)
 
         # we are done now
@@ -25,4 +26,5 @@ def test_greeter():
     xa.start("main", Main)
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     test_greeter()

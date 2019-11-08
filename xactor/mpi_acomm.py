@@ -69,6 +69,9 @@ class AsyncBufferedSender:
 
     def send(self, to, msg):
         """Send a messge."""
+        if __debug__:
+            LOG.debug("Sending %r to %d", msg, to)
+
         pkl = pickle.dumps(msg, pickle.HIGHEST_PROTOCOL)
         pkl_len = len(pkl)
         if pkl_len > MAX_MESSAGE_SIZE:
@@ -135,6 +138,8 @@ class AsyncReceiver:
                 LOG.debug("Received %d messages", len(msgs))
             for msg in msgs:
                 msg = pickle.loads(msg)
+                if __debug__:
+                    LOG.debug("Received %r", msg)
                 if msg is StopAsyncReceiver:
                     stop_receiver = True
                     continue

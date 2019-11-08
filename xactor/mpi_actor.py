@@ -21,7 +21,7 @@ __all__ = [
 ]
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from collections import defaultdict
 
 from mpi4py import MPI
@@ -41,26 +41,23 @@ RANK_ACTOR_ID = "_rank_actor"
 _MPI_RANK_ACTOR = None
 _NODE_RANKS = None
 
+
 def getLogger(name):
     """Return a logger with the given name and the world rank attached to it."""
     name = "%s.%d" % (name, WORLD_RANK)
     return logging.getLogger(name)
 
+
 LOG = getLogger(__name__)
 
-@dataclass(init=False)
+
+@dataclass
 class Message:
     """A Message."""
 
     method: str
-    args: list
-    kwargs: dict
-
-    def __init__(self, method, *args, **kwargs):
-        """Construct the message."""
-        self.method = method
-        self.args = args
-        self.kwargs = kwargs
+    args: list = field(default_factory=list)
+    kwargs: dict = field(default_factory=dict)
 
 
 class NodeRanks:
@@ -215,7 +212,7 @@ def create_actor(rank, actor_id, cls, *args, **kwargs):
         *args: Positional arguments for the constructor
         **kwargs: Keyword arguments for the constructor
     """
-    message = Message("create_actor", actor_id, cls, args, kwargs)
+    message = Message("create_actor", args=[actor_id, cls, args, kwargs])
     send(rank, RANK_ACTOR_ID, message, immediate=True)
 
 
@@ -227,7 +224,7 @@ def delete_actors(rank, actor_ids):
         rank: Rank on which actors are to be deleted
         actor_ids: IDs of actors to be deleted
     """
-    message = Message("delete_actors", actor_ids)
+    message = Message("delete_actors", args=[actor_ids])
     send(rank, RANK_ACTOR_ID, message, immediate=True)
 
 
@@ -247,20 +244,29 @@ def start(actor_id, cls, *args, **kwargs):
     """
     global _NODE_RANKS, _MPI_RANK_ACTOR  # pylint: disable=global-statement
 
-    if _MPI_RANK_ACTOR is not None:
-        raise ValueError("The actor system has already been started.")
+    try:
+        if _MPI_RANK_ACTOR is not None:
+            raise ValueError("The actor system has already been started.")
 
-    _NODE_RANKS = NodeRanks()
-    _MPI_RANK_ACTOR = MPIRankActor()
+        _NODE_RANKS = NodeRanks()
+        _MPI_RANK_ACTOR = MPIRankActor()
 
-    if WORLD_RANK == MASTER_RANK:
-        _MPI_RANK_ACTOR.create_actor(actor_id, cls, args, kwargs)
+        if WORLD_RANK == MASTER_RANK:
+            if __debug__:
+                LOG.debug("Creating actor main actor '%s' on %d", actor_id, MASTER_RANK)
 
-        message = Message("main")
-        _MPI_RANK_ACTOR.send(MASTER_RANK, actor_id, message)
-        _MPI_RANK_ACTOR.flush()
+            _MPI_RANK_ACTOR.create_actor(actor_id, cls, args, kwargs)
 
-    _MPI_RANK_ACTOR._loop()  # pylint: disable=protected-access
+            if __debug__:
+                LOG.debug("Scheduling 'main' message for main actor '%s' on %d", actor_id, MASTER_RANK)
+            message = Message("main")
+            _MPI_RANK_ACTOR.send(MASTER_RANK, actor_id, message)
+            _MPI_RANK_ACTOR.flush()
+
+        _MPI_RANK_ACTOR._loop()  # pylint: disable=protected-access
+    except:
+        LOG.exception("Uncaught exception")
+        raise
 
 
 def stop():
