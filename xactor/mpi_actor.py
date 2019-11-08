@@ -5,6 +5,7 @@ Provides a classical actor model implementation on top of MPI.
 
 __all__ = [
     "Message",
+    "ActorProxy",
     "nodes",
     "ranks",
     "node_ranks",
@@ -322,3 +323,57 @@ def node_ranks(node):
         ranks: List of ranks running on the given node.
     """
     return _NODE_RANKS.node_ranks_[node]
+
+
+class ActorProxy:
+    """A proxy of an actor.
+
+    This class provides syntactic sugar for creating and sending messages
+    to remote actors.
+
+    The following code shows how to send messages using actor proxy:
+    >>> actor = ActorProxy(rank, actor_id, everynode, immediate)
+    >>> actor.method(*args, **kwargs)
+
+    The above does the same thing as the following code:
+    >>> message = Message("method", args, kwargs)
+    >>> send(rank, actor_id, message, everynode, immediate)
+    """
+
+    def __init__(self, rank, actor_id, everynode=False, immediate=True):
+        """Initialize.
+
+        Paramemters rank, actor_id, everynode, and immediate are passed directy to send().
+        See send() for details.
+        """
+        self._rank = rank
+        self._actor_id = actor_id
+        self._everynode = everynode
+        self._immediate = immediate
+        self._method = None
+
+    def __getattr__(self, method):
+        """Prepare the system for a remote message send.
+
+        Parameters
+        ----------
+            method: Message method name
+        """
+        self._method = method
+        return self
+
+    def __call__(self, *args, **kwargs):
+        """Setup the args and kwargs for the message and send it.
+
+        Parameters
+        ----------
+            *args: Positional arguments of the Message
+            **kwargs: Keyword arguments of the Message
+        """
+        if self._method is None:
+            raise ValueError("Message method not set")
+
+        message = Message(self._method, args, kwargs)
+        send(self._rank, self._actor_id, message, self._everynode, self._immediate)
+
+        self._method = None
