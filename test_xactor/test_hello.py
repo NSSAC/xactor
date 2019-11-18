@@ -16,7 +16,7 @@ class Main:
 
         # Send them the greet message
         every_greeter = xa.ActorProxy(xa.EVERY_RANK, greeter_id)
-        every_greeter.greet("world")
+        every_greeter.greet("world", send_immediate=True)
 
         # we are done now
         xa.stop()

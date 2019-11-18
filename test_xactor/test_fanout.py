@@ -19,7 +19,7 @@ class Consumer:
         self.objects_received += len(msg)
 
     def producer_done(self):
-        self.main.consumer_done(self.objects_received)
+        self.main.consumer_done(self.objects_received, send_immediate=True)
 
 class Producer:
     def __init__(self):
@@ -42,7 +42,7 @@ class Producer:
             print("Sent %d objects to %d" % (len(msg), rank))
 
         self.every_consumer.producer_done()
-        self.main.producer_done(objects_sent)
+        self.main.producer_done(objects_sent, send_immediate=True)
 
 class Main:
     def __init__(self):
@@ -54,12 +54,7 @@ class Main:
         xa.create_actor(xa.MASTER_RANK, "producer", Producer)
         xa.create_actor(xa.EVERY_RANK, "consumer", Consumer)
 
-        self.producer.produce()
-
-    def maybe_stop(self):
-        if self.objects_sent != 0 and self.objects_sent == self.objects_received:
-            print("Sent %d, Received %d" % (self.objects_sent, self.objects_received))
-            xa.stop()
+        self.producer.produce(send_immediate=True)
 
     def producer_done(self, n):
         self.objects_sent = n
@@ -68,6 +63,11 @@ class Main:
     def consumer_done(self, n):
         self.objects_received += n
         self.maybe_stop()
+
+    def maybe_stop(self):
+        if self.objects_sent != 0 and self.objects_sent == self.objects_received:
+            print("Sent %d, Received %d" % (self.objects_sent, self.objects_received))
+            xa.stop()
 
 def test_greeter():
     xa.start("main", Main)

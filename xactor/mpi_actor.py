@@ -171,29 +171,25 @@ class MPIRankActor:
         self.acomm.flush()
 
 
-def send(rank, actor_id, message, everynode=False, immediate=True):
+def send(rank, actor_id, message, immediate=False):
     """Send the message to the given actor on the given rank.
 
     Parameters
     ----------
-        rank: Destination rank on which the actor resides
-              if rank == EVERY_RANK, message is sent to all ranks
+        rank: Destination rank(s) on which the actor resides.
+              If rank is an iterable, send it to all ranks in the iterable.
+              if rank == EVERY_RANK, message is sent to all ranks.
         actor_id: Actor to whom the message is to be sent
         message: Message to be sent
-        everynode: If true, message is sent to the rank-th process on every node
-        immediate: If true, all send buffers are flushed immediately
+        immediate: If true flush out all send buffers
     """
-    if rank == EVERY_RANK:
-        ranks_ = range(WORLD_SIZE)
-    else:
-        if everynode:
-            ranks_ = []
-            for n in nodes():
-                nrs = node_ranks(n)
-                r = nrs[rank % len(nrs)]
-                ranks_.append(r)
+    if isinstance(rank, int):
+        if rank == EVERY_RANK:
+            ranks_ = range(WORLD_SIZE)
         else:
             ranks_ = [rank]
+    else:
+        ranks_ = list(ranks)
 
     for rank_ in ranks_:
         _MPI_RANK_ACTOR.send(rank_, actor_id, message)
@@ -336,24 +332,27 @@ class ActorProxy:
     to remote actors.
 
     The following code shows how to send messages using actor proxy:
-    >>> actor = ActorProxy(rank, actor_id, everynode, immediate)
+    >>> actor = ActorProxy(rank, actor_id)
     >>> actor.method(*args, **kwargs)
 
     The above does the same thing as the following code:
     >>> message = Message("method", args, kwargs)
-    >>> send(rank, actor_id, message, everynode, immediate)
+    >>> send(rank, actor_id, message)
+
+    Note: When constructing messages using actor proxy,
+    the keyword argument `send_immediate' is handled specially.
+    If present, it is taken to indicate that the `send' should be called
+    with immediate=True.
     """
 
-    def __init__(self, rank, actor_id, everynode=False, immediate=True):
+    def __init__(self, rank, actor_id):
         """Initialize.
 
-        Paramemters rank, actor_id, everynode, and immediate are passed directy to send().
+        Paramemters rank and actor_id are passed directy to send().
         See send() for details.
         """
         self._rank = rank
         self._actor_id = actor_id
-        self._everynode = everynode
-        self._immediate = immediate
         self._method = None
 
     def __getattr__(self, method):
@@ -377,7 +376,8 @@ class ActorProxy:
         if self._method is None:
             raise ValueError("Message method not set")
 
+        immediate = kwargs.pop("send_immediate", False)
         message = Message(self._method, args, kwargs)
-        send(self._rank, self._actor_id, message, self._everynode, self._immediate)
+        send(self._rank, self._actor_id, message, immediate)
 
         self._method = None
