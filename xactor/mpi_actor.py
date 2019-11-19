@@ -339,9 +339,10 @@ class ActorProxy:
     >>> message = Message("method", args, kwargs)
     >>> send(rank, actor_id, message)
 
-    Note: When constructing messages using actor proxy,
+    NOTE: When constructing messages using actor proxy,
     the keyword argument `send_immediate' is handled specially.
-    If present, it is taken to indicate that the `send' should be called
+    If present and true,
+    it is taken to indicate that the `send' should be called
     with immediate=True.
     """
 
@@ -367,6 +368,11 @@ class ActorProxy:
 
     def __call__(self, *args, **kwargs):
         """Setup the args and kwargs for the message and send it.
+
+        NOTE: The keyword argument `send_immediate' is handled specially.
+        If present and true,
+        it is taken to indicate that the `send' should be called
+        with immediate=True.
 
         Parameters
         ----------
