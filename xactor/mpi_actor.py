@@ -91,7 +91,7 @@ class MPIRankActor:
 
     def _loop(self):
         """Loop through messages."""
-        LOG.info("Starting rank loop with %d actors", len(self.local_actors))
+        LOG.debug("Starting rank loop with %d actors", len(self.local_actors))
 
         while not self.stopping:
             actor_id, message = self.acomm.recv()
@@ -119,7 +119,7 @@ class MPIRankActor:
 
     def _stop(self):
         """Stop the event loop after processing the current message."""
-        LOG.info("Received stop message")
+        LOG.debug("Received stop message")
 
         self.acomm.finish()
         self.stopping = True
@@ -249,17 +249,12 @@ def start(actor_id, cls, *args, **kwargs):
         _MPI_RANK_ACTOR = MPIRankActor()
 
         if WORLD_RANK == MASTER_RANK:
+            # Create main actor
             if __debug__:
-                LOG.debug("Creating actor main actor '%s' on %d", actor_id, MASTER_RANK)
-
+                LOG.debug("Creating main actor: id=%s class=%r", actor_id, cls)
             _MPI_RANK_ACTOR.create_actor(actor_id, cls, args, kwargs)
 
-            if __debug__:
-                LOG.debug(
-                    "Scheduling 'main' message for main actor '%s' on %d",
-                    actor_id,
-                    MASTER_RANK,
-                )
+            # Schedule message to be delivered to main actor
             message = Message("main")
             _MPI_RANK_ACTOR.send(MASTER_RANK, actor_id, message)
             _MPI_RANK_ACTOR.flush()

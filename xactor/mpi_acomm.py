@@ -21,6 +21,9 @@ HEADER_SIZE = 4096
 
 MAX_MESSAGE_SIZE = BUFFER_SIZE - HEADER_SIZE
 
+DEBUG_FINE = logging.DEBUG - 1
+DEBUG_FINER = logging.DEBUG - 2
+
 LOG = logging.getLogger("%s.%d" % (__name__, WORLD_RANK))
 
 # Message used to stop AsyncReceiver
@@ -38,7 +41,7 @@ class AsyncRawSender:
     def send(self, to, msg):
         """Send a messge."""
         if __debug__:
-            LOG.debug("Sending %d bytes to %d", len(msg), to)
+            LOG.log(DEBUG_FINER, "Sending %d bytes to %d", len(msg), to)
 
         req = COMM_WORLD.Isend([msg, MPI.CHAR], dest=to)
         self.pending_sends.append(req)
@@ -60,6 +63,7 @@ class AsyncRawSender:
 
         MPI.Request.Waitall(self.pending_sends)
         self.pending_sends.clear()
+
 
 class AsyncBufferedSender:
     """Manager for sending messages."""
@@ -83,7 +87,7 @@ class AsyncBufferedSender:
             return
 
         if __debug__:
-            LOG.debug("Sending %s messages to %d", len(self.buffer[to]), to)
+            LOG.log(DEBUG_FINER, "Sending %s messages to %d", len(self.buffer[to]), to)
         buf = pickle.dumps(self.buffer[to], pickle.HIGHEST_PROTOCOL)
         self.sender.send(to, buf)
         self.buffer[to].clear()
@@ -97,7 +101,7 @@ class AsyncBufferedSender:
         for to in range(WORLD_SIZE):
             if self.buffer[to]:
                 if __debug__:
-                    LOG.debug("Sending %s messages to %d", len(self.buffer[to]), to)
+                    LOG.log(DEBUG_FINER, "Sending %s messages to %d", len(self.buffer[to]), to)
                 buf = pickle.dumps(self.buffer[to], pickle.HIGHEST_PROTOCOL)
                 self.sender.send(to, buf)
                 self.buffer[to].clear()
@@ -144,17 +148,18 @@ class AsyncReceiver:
             frm = status.Get_source()
             cnt = status.Get_count()
             if __debug__:
-                LOG.debug("Received %d bytes from %d", cnt, frm)
+                LOG.log(DEBUG_FINER, "Received %d bytes from %d", cnt, frm)
 
             msgs = pickle.loads(buf[:cnt])
             if msgs is StopAsyncReceiver:
                 self.finished.set()
                 return
-            
+
             if __debug__:
-                LOG.debug("Received %d messages from %d", len(msgs), frm)
+                LOG.log(DEBUG_FINER, "Received %d messages from %d", len(msgs), frm)
             for msg in msgs:
-                self.msgq.put(msg)
+                self.msgq.put((frm, msg))
+
 
 class AsyncCommunicator:
     """Communicate with other processes."""
@@ -169,16 +174,21 @@ class AsyncCommunicator:
 
     def send(self, to, msg):
         """Send a messge."""
+        if __debug__:
+            LOG.log(DEBUG_FINE, "Sending to %d: %r", to, msg)
+
         msg = pickle.dumps(msg, pickle.HIGHEST_PROTOCOL)
         if to == WORLD_RANK:
-            self.receiver.msgq.put(msg)
+            self.receiver.msgq.put((WORLD_RANK, msg))
         else:
             self.sender.send(to, msg)
 
     def recv(self):
         """Receive a message."""
-        msg = self.receiver.recv()
+        frm, msg = self.receiver.recv()
         msg = pickle.loads(msg)
+        if __debug__:
+            LOG.log(DEBUG_FINE, "Received from %d: %r", frm, msg)
         return msg
 
     def finish(self):
