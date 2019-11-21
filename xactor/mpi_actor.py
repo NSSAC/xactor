@@ -341,7 +341,7 @@ class ActorProxy:
     with immediate=True.
     """
 
-    def __init__(self, rank, actor_id):
+    def __init__(self, rank=None, actor_id=None):
         """Initialize.
 
         Paramemters rank and actor_id are passed directy to send().
@@ -382,3 +382,11 @@ class ActorProxy:
         send(self._rank, self._actor_id, message, immediate)
 
         self._method = None
+
+    def __getstate__(self):
+        """Return pickleable state."""
+        return (self._rank, self._actor_id)
+
+    def __setstate__(self, state):
+        """Set the state."""
+        self._rank, self._actor_id = state
