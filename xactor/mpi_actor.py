@@ -189,7 +189,7 @@ def send(rank, actor_id, message, immediate=False):
         else:
             ranks_ = [rank]
     else:
-        ranks_ = list(ranks)
+        ranks_ = list(rank)
 
     for rank_ in ranks_:
         _MPI_RANK_ACTOR.send(rank_, actor_id, message)
