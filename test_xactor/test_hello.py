@@ -26,5 +26,5 @@ def test_greeter():
     xa.start("main", Main)
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     test_greeter()

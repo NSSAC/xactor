@@ -1,5 +1,7 @@
 """Hello World in XActor."""
 
+from time import time
+
 import random
 import logging
 import xactor.mpi_actor as xa
@@ -15,7 +17,7 @@ class Consumer:
         self.main = xa.ActorProxy(xa.MASTER_RANK, "main")
 
     def consume(self, msg):
-        print("%d Received %d objects" % (xa.current_rank(), len(msg)))
+        #print("%d Received %d objects" % (xa.current_rank(), len(msg)))
         self.objects_received += len(msg)
 
     def producer_done(self):
@@ -39,13 +41,15 @@ class Producer:
 
             msg = list(range(msg_size))
             self.consumer[rank].consume(msg)
-            print("Sent %d objects to %d" % (len(msg), rank))
+            #print("Sent %d objects to %d" % (len(msg), rank))
 
         self.every_consumer.producer_done()
         self.main.producer_done(objects_sent, send_immediate=True)
 
 class Main:
     def __init__(self):
+        self.start = None
+        self.end = None
         self.objects_sent = 0
         self.objects_received = 0
         self.producer = xa.ActorProxy(xa.MASTER_RANK, "producer")
@@ -54,6 +58,7 @@ class Main:
         xa.create_actor(xa.MASTER_RANK, "producer", Producer)
         xa.create_actor(xa.EVERY_RANK, "consumer", Consumer)
 
+        self.start = time()
         self.producer.produce(send_immediate=True)
 
     def producer_done(self, n):
@@ -66,12 +71,22 @@ class Main:
 
     def maybe_stop(self):
         if self.objects_sent != 0 and self.objects_sent == self.objects_received:
-            print("Sent %d, Received %d" % (self.objects_sent, self.objects_received))
+            self.end = time()
+
+            print("n_sent: %d" % self.objects_sent)
+            print("n_received: %d" % self.objects_received)
+
+            print("n_ranks: %d" % xa.WORLD_SIZE)
+            print("n_nodes: %d" % len(xa.nodes()))
+
+            runtime = (self.end - self.start) / 1e-3
+            print("runtime: %g ms" % runtime)
+
             xa.stop()
 
 def test_greeter():
     xa.start("main", Main)
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     test_greeter()
