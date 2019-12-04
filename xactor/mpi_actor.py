@@ -360,6 +360,9 @@ class ActorProxy:
         ----------
             method: Message method name
         """
+        if method.startswith("__"):
+            raise AttributeError("Calling dunder methods using ActorProxy is not allowed.")
+
         self._method = method
         return self
 
