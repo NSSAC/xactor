@@ -245,6 +245,8 @@ def start(actor_id, cls, *args, **kwargs):
         if _MPI_RANK_ACTOR is not None:
             raise ValueError("The actor system has already been started.")
 
+        COMM_WORLD.Barrier()
+
         _NODE_RANKS = NodeRanks()
         _MPI_RANK_ACTOR = MPIRankActor()
 
