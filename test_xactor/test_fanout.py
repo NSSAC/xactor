@@ -52,6 +52,7 @@ class Main:
         self.end = None
         self.objects_sent = 0
         self.objects_received = 0
+        self.num_consumer_done = 0
         self.producer = xa.ActorProxy(xa.MASTER_RANK, "producer")
 
     def main(self):
@@ -67,10 +68,11 @@ class Main:
 
     def consumer_done(self, n):
         self.objects_received += n
+        self.num_consumer_done += 1
         self.maybe_stop()
 
     def maybe_stop(self):
-        if self.objects_sent != 0 and self.objects_sent == self.objects_received:
+        if self.num_consumer_done == xa.WORLD_SIZE:
             self.end = time()
 
             print("n_sent: %d" % self.objects_sent)
