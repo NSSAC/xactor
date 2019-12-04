@@ -3,7 +3,7 @@
 from time import time
 
 import logging
-import xactor.mpi_actor as xa
+import xactor as xa
 
 class Worker:
     def __init__(self):

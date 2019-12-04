@@ -1,7 +1,7 @@
 """Hello World in XActor."""
 
 import logging
-import xactor.mpi_actor as xa
+import xactor as xa
 
 class Greeter:
     def greet(self, name):

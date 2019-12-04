@@ -18,6 +18,7 @@ __all__ = [
     "delete_actors",
     "MASTER_RANK",
     "EVERY_RANK",
+    "WORLD_SIZE",
     "getLogger",
 ]
 

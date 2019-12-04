@@ -4,7 +4,7 @@ from time import time
 
 import random
 import logging
-import xactor.mpi_actor as xa
+import xactor as xa
 
 MIN_NUM = 100
 MAX_NUM = 200
