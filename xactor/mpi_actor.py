@@ -45,7 +45,18 @@ _NODE_RANKS = None
 
 
 def getLogger(name):
-    """Return a logger with the given name and the world rank attached to it."""
+    """Return a logger with the given name and the world rank appended to it.
+
+    Paramemters
+    -----------
+    name: str
+        Name of the logger
+
+    Returns
+    -------
+    logger: logging.Logger
+        A logging.Logger object
+    """
     name = "%s.%d" % (name, WORLD_RANK)
     return logging.getLogger(name)
 
@@ -55,7 +66,24 @@ LOG = getLogger(__name__)
 
 @dataclass
 class Message:
-    """A Message."""
+    """A Message.
+
+    A message corresponds to a method call on the remote actor.
+    A message objects contains the name of the method,
+    and the paramemters to be passed when calling.
+
+    A message can be constructed directly,
+    or by using a `ActorProxy` object.
+
+    Attributes
+    ----------
+    method: str
+        Name of the method
+    args: list
+        Positional arguments
+    kwargs: dict
+        Keyword arguments
+    """
 
     method: str
     args: list = field(default_factory=list)
@@ -81,7 +109,7 @@ class NodeRanks:
 class MPIRankActor:
     """MPI Rank Actor.
 
-    Container for actors that runs on the current rank.
+    Container for actors that run on the current rank.
     """
 
     def __init__(self):
@@ -130,10 +158,14 @@ class MPIRankActor:
 
         Parameters
         ----------
-            actor_id: ID of the new actor
-            cls: Class used to instantiate the new actor
-            args: Positional arguments for the constructor
-            kwargs: Keyword arguments for the constructor
+        actor_id: str
+            ID of the new actor
+        cls: type
+            Class used to instantiate the new actor
+        args: list
+            Positional arguments for the constructor
+        kwargs: dict
+            Keyword arguments for the constructor
         """
         if actor_id in self.local_actors:
             raise RuntimeError("Actor with ID %s already exists" % actor_id)
@@ -146,7 +178,8 @@ class MPIRankActor:
 
         Parameters
         ----------
-            actor_ids: IDs of local actors to be deleted
+        actor_ids: list
+            IDs of local actors to be deleted
         """
         for actor_id in actor_ids:
             if actor_id == RANK_ACTOR_ID:
@@ -161,9 +194,12 @@ class MPIRankActor:
 
         Parameters
         ----------
-            rank: Destination rank on which the actor resides
-            actor_id: Actor to whom the message is to be sent
-            message: Message to be sent
+        rank: int
+            Destination rank on which the actor resides
+        actor_id: str
+            Actor to whom the message is to be sent
+        message: Message
+            Message to be sent
         """
         self.acomm.send(rank, (actor_id, message))
 
@@ -177,12 +213,16 @@ def send(rank, actor_id, message, immediate=False):
 
     Parameters
     ----------
-        rank: Destination rank(s) on which the actor resides.
-              If rank is an iterable, send it to all ranks in the iterable.
-              if rank == EVERY_RANK, message is sent to all ranks.
-        actor_id: Actor to whom the message is to be sent
-        message: Message to be sent
-        immediate: If true flush out all send buffers
+    rank: int or list of ints
+        Destination rank(s) on which the actor resides.
+        If rank is an iterable, send it to all ranks in the iterable.
+        if rank == EVERY_RANK, message is sent to all ranks.
+    actor_id: str
+        Actor to whom the message is to be sent
+    message: Message
+        Message to be sent
+    immediate: bool
+        If true flush out all send buffers
     """
     if isinstance(rank, int):
         if rank == EVERY_RANK:
@@ -204,11 +244,17 @@ def create_actor(rank, actor_id, cls, *args, **kwargs):
 
     Parameters
     ----------
-        rank: Rank on which actor is to be created.
-        actor_id: ID of the new actor
-        cls: Class used to instantiate the new actor
-        *args: Positional arguments for the constructor
-        **kwargs: Keyword arguments for the constructor
+    rank: int or list of ints
+        Rank(s) on which actor is to be created.
+        See `send` for how `rank` is processed.
+    actor_id: str
+        ID of the new actor
+    cls: type
+        Class used to instantiate the new actor
+    *args: list
+        Positional arguments for the constructor
+    **kwargs: dict
+        Keyword arguments for the constructor
     """
     message = Message("create_actor", args=[actor_id, cls, args, kwargs])
     send(rank, RANK_ACTOR_ID, message, immediate=True)
@@ -219,8 +265,11 @@ def delete_actors(rank, actor_ids):
 
     Parameters
     ----------
-        rank: Rank on which actors are to be deleted
-        actor_ids: IDs of actors to be deleted
+    rank: int or list of ints
+        Rank(s) on which actor is to be created.
+        See `send` for how `rank` is processed.
+    actor_ids: list of str
+        IDs of actors to be deleted
     """
     message = Message("delete_actors", args=[actor_ids])
     send(rank, RANK_ACTOR_ID, message, immediate=True)
@@ -235,10 +284,14 @@ def start(actor_id, cls, *args, **kwargs):
 
     Parameters
     ----------
-        actor_id: ID of the main actor.
-        cls: Class used to instantiate the `main' actor on the MASTER_RANK
-        *arg: Positional arguments for the constructor
-        **kwargs: Keyword arguments for the constructor
+    actor_id: str
+        ID of the main actor.
+    cls: type
+        Class used to instantiate the `main` actor on the MASTER_RANK
+    *args: list
+        Positional arguments for the constructor
+    **kwargs: dict
+        Keyword arguments for the constructor
     """
     global _NODE_RANKS, _MPI_RANK_ACTOR  # pylint: disable=global-statement
 
@@ -284,7 +337,8 @@ def ranks():
 
     Returns
     -------
-        ranks: an iterable of node ranks
+    ranks: iterable of int
+        An iterable of node ranks
     """
     return range(WORLD_SIZE)
 
@@ -294,7 +348,8 @@ def current_rank():
 
     Returns
     -------
-        rank: rank of the current process
+    rank: int
+        Rank of the current process
     """
     return WORLD_RANK
 
@@ -304,7 +359,8 @@ def nodes():
 
     Returns
     -------
-        nodes: List of of node names
+    nodes: list
+        List of of node names
     """
     return _NODE_RANKS.nodes_
 
@@ -314,11 +370,13 @@ def node_ranks(node):
 
     Parameters
     ----------
-        node: a node name
+    node: str
+        The name of a node name
 
     Returns
     -------
-        ranks: List of ranks running on the given node.
+    ranks: list of int
+        List of ranks running on the given node.
     """
     return _NODE_RANKS.node_ranks_[node]
 
@@ -329,40 +387,45 @@ class ActorProxy:
     This class provides syntactic sugar for creating and sending messages
     to remote actors.
 
-    The following code shows how to send messages using actor proxy:
+    The following code shows how to send messages using actor proxy
+
     >>> actor = ActorProxy(rank, actor_id)
     >>> actor.method(*args, **kwargs)
 
     The above does the same thing as the following code:
+
     >>> message = Message("method", args, kwargs)
     >>> send(rank, actor_id, message)
 
     NOTE: When constructing messages using actor proxy,
-    the keyword argument `send_immediate' is handled specially.
+    the keyword argument ``send_immediate`` is handled specially.
     If present and true,
-    it is taken to indicate that the `send' should be called
-    with immediate=True.
+    it is taken to indicate that the `send` should be called
+    with ``immediate=True``.
     """
 
     def __init__(self, rank=None, actor_id=None):
         """Initialize.
 
-        Paramemters rank and actor_id are passed directy to send().
-        See send() for details.
+        Paramemters `rank` and `actor_id` are passed directy to send().
+        See `send` for details.
         """
         self._rank = rank
         self._actor_id = actor_id
         self._method = None
 
     def __getattr__(self, method):
-        """Prepare the system for a remote message send.
+        """Prepare the proxy for a remote message send.
 
         Parameters
         ----------
-            method: Message method name
+        method: str
+            Message method name
         """
         if method.startswith("__"):
-            raise AttributeError("Calling dunder methods using ActorProxy is not allowed.")
+            raise AttributeError(
+                "Calling dunder methods using ActorProxy is not allowed."
+            )
 
         self._method = method
         return self
@@ -370,15 +433,17 @@ class ActorProxy:
     def __call__(self, *args, **kwargs):
         """Setup the args and kwargs for the message and send it.
 
-        NOTE: The keyword argument `send_immediate' is handled specially.
+        NOTE: The keyword argument `send_immediate` is handled specially.
         If present and true,
-        it is taken to indicate that the `send' should be called
-        with immediate=True.
+        it is taken to indicate that the `send` should be called
+        with ``immediate=True``.
 
         Parameters
         ----------
-            *args: Positional arguments of the Message
-            **kwargs: Keyword arguments of the Message
+        *args: list
+            Positional arguments of the Message
+        **kwargs: dict
+            Keyword arguments of the Message
         """
         if self._method is None:
             raise ValueError("Message method not set")
