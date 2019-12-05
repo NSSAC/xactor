@@ -27,10 +27,10 @@ class Main:
 
     def pong(self):
         self.workers_done += 1
-        if self.workers_done == xa.WORLD_SIZE:
+        if self.workers_done == len(xa.ranks()):
             self.end = time()
 
-            print("n_ranks: %d" % xa.WORLD_SIZE)
+            print("n_ranks: %d" % len(xa.ranks()))
             print("n_nodes: %d" % len(xa.nodes()))
 
             runtime = (self.end - self.start)

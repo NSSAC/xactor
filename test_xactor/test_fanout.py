@@ -72,13 +72,13 @@ class Main:
         self.maybe_stop()
 
     def maybe_stop(self):
-        if self.num_consumer_done == xa.WORLD_SIZE:
+        if self.num_consumer_done == len(xa.ranks()):
             self.end = time()
 
             print("n_sent: %d" % self.objects_sent)
             print("n_received: %d" % self.objects_received)
 
-            print("n_ranks: %d" % xa.WORLD_SIZE)
+            print("n_ranks: %d" % len(xa.ranks()))
             print("n_nodes: %d" % len(xa.nodes()))
 
             runtime = (self.end - self.start)
@@ -86,9 +86,9 @@ class Main:
 
             xa.stop()
 
-def test_greeter():
+def test_fanout():
     xa.start("main", Main)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    test_greeter()
+    test_fanout()
