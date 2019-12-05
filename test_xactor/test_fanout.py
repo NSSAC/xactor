@@ -14,7 +14,7 @@ MAX_SIZE = 200
 class Consumer:
     def __init__(self):
         self.objects_received = 0
-        self.main = xa.ActorProxy(xa.MASTER_RANK, "main")
+        self.main = xa.ActorProxy(xa.MASTER_RANK, "main", Main)
 
     def consume(self, msg):
         #print("%d Received %d objects" % (xa.current_rank(), len(msg)))
@@ -25,9 +25,9 @@ class Consumer:
 
 class Producer:
     def __init__(self):
-        self.main = xa.ActorProxy(xa.MASTER_RANK, "main")
-        self.consumer = [xa.ActorProxy(rank, "consumer") for rank in xa.ranks()]
-        self.every_consumer = xa.ActorProxy(xa.EVERY_RANK, "consumer")
+        self.main = xa.ActorProxy(xa.MASTER_RANK, "main", Main)
+        self.consumer = [xa.ActorProxy(rank, "consumer", Consumer) for rank in xa.ranks()]
+        self.every_consumer = xa.ActorProxy(xa.EVERY_RANK, "consumer", Consumer)
 
     def produce(self):
         objects_sent = 0
@@ -53,7 +53,7 @@ class Main:
         self.objects_sent = 0
         self.objects_received = 0
         self.num_consumer_done = 0
-        self.producer = xa.ActorProxy(xa.MASTER_RANK, "producer")
+        self.producer = xa.ActorProxy(xa.MASTER_RANK, "producer", Producer)
 
     def main(self):
         xa.create_actor(xa.MASTER_RANK, "producer", Producer)
@@ -81,8 +81,8 @@ class Main:
             print("n_ranks: %d" % xa.WORLD_SIZE)
             print("n_nodes: %d" % len(xa.nodes()))
 
-            runtime = (self.end - self.start) / 1e-3
-            print("runtime: %g ms" % runtime)
+            runtime = (self.end - self.start)
+            print("runtime: %e" % runtime)
 
             xa.stop()
 

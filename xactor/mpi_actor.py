@@ -22,6 +22,7 @@ __all__ = [
     "getLogger",
 ]
 
+import inspect
 import logging
 from dataclasses import dataclass, field
 from collections import defaultdict
@@ -47,8 +48,8 @@ _NODE_RANKS = None
 def getLogger(name):
     """Return a logger with the given name and the world rank appended to it.
 
-    Paramemters
-    -----------
+    Parameters
+    ----------
     name: str
         Name of the logger
 
@@ -70,7 +71,7 @@ class Message:
 
     A message corresponds to a method call on the remote actor.
     A message objects contains the name of the method,
-    and the paramemters to be passed when calling.
+    and the parameters to be passed when calling.
 
     A message can be constructed directly,
     or by using a `ActorProxy` object.
@@ -404,14 +405,24 @@ class ActorProxy:
     with ``immediate=True``.
     """
 
-    def __init__(self, rank=None, actor_id=None):
+    def __init__(self, rank=None, actor_id=None, cls=None):
         """Initialize.
 
-        Paramemters `rank` and `actor_id` are passed directy to send().
-        See `send` for details.
+        Parameters
+        ----------
+        rank: int or list of ints
+            Rank of the remote actor (see `send` for details)
+        actor_id: str
+            ID of the remote actor
+        cls: type, optional
+            Class of the remote actor.
+            If not running in optimized mode,
+            remote method calls are checked
+            to make sure they have the correct number of parameters.
         """
         self._rank = rank
         self._actor_id = actor_id
+        self._cls = cls
         self._method = None
 
     def __getattr__(self, method):
@@ -449,6 +460,16 @@ class ActorProxy:
             raise ValueError("Message method not set")
 
         immediate = kwargs.pop("send_immediate", False)
+
+        if __debug__:
+            if self._cls is not None:
+                # Check to see if we have the correct set of parameters
+                real_method = getattr(self._cls, self._method)
+                real_method_sig = inspect.signature(real_method)
+                # NOTE: this assumes that the method being called
+                # is a regular method, i.e. has an additional self argument
+                real_method_sig.bind(None, *args, **kwargs)
+
         message = Message(self._method, args, kwargs)
         send(self._rank, self._actor_id, message, immediate)
 
@@ -456,8 +477,8 @@ class ActorProxy:
 
     def __getstate__(self):
         """Return pickleable state."""
-        return (self._rank, self._actor_id)
+        return (self._rank, self._actor_id, self._cls)
 
     def __setstate__(self, state):
         """Set the state."""
-        self._rank, self._actor_id = state
+        self._rank, self._actor_id, self._cls = state

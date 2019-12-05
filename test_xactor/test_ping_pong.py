@@ -7,7 +7,7 @@ import xactor as xa
 
 class Worker:
     def __init__(self):
-        self.main_actor = xa.ActorProxy(xa.MASTER_RANK, "main")
+        self.main_actor = xa.ActorProxy(xa.MASTER_RANK, "main", Main)
 
     def ping(self):
         self.main_actor.pong(send_immediate=True)
@@ -17,7 +17,7 @@ class Main:
         self.start = None
         self.end = None
         self.workers_done = 0
-        self.every_worker = xa.ActorProxy(xa.EVERY_RANK, "worker")
+        self.every_worker = xa.ActorProxy(xa.EVERY_RANK, "worker", Worker)
 
     def main(self):
         xa.create_actor(xa.EVERY_RANK, "worker", Worker)
@@ -33,8 +33,8 @@ class Main:
             print("n_ranks: %d" % xa.WORLD_SIZE)
             print("n_nodes: %d" % len(xa.nodes()))
 
-            runtime = (self.end - self.start) / 1e-6
-            print("runtime: %g us" % runtime)
+            runtime = (self.end - self.start)
+            print("runtime: %e" % runtime)
 
             xa.stop()
 
