@@ -199,8 +199,9 @@ class AsyncCommunicator:
 
         self.receiver.join()
 
-        qsize = self.receiver.msgq.qsize()
-        if qsize:
-            LOG.warning(
-                "Communicator finished with %d messages still in receiver queue", qsize
-            )
+        try:
+            while True:
+                frm, msg = self.receiver.msgq.get(block=False)
+                LOG.warning("Unretrieved message: %d: %r", frm, msg)
+        except queue.Empty:
+            return
