@@ -6,6 +6,7 @@ import xactor as xa
 class Greeter:
     def greet(self, name):
         print("Greetings to %s from %s" % (xa.current_rank(), name))
+        raise ValueError()
 
 class Main:
     def main(self):

@@ -22,7 +22,7 @@ __all__ = [
     "getLogger",
 ]
 
-import inspect
+import traceback
 import logging
 from dataclasses import dataclass, field
 from collections import defaultdict
@@ -124,8 +124,11 @@ class MPIRankActor:
         LOG.debug("Starting rank loop with %d actors", len(self.local_actors))
 
         while not self.stopping:
-            actor_id, message = self.acomm.recv()
+            actor_id, sender_st, message = self.acomm.recv()
             if actor_id not in self.local_actors:
+                LOG.error("Message received for non-local actor: %r", actor_id)
+                if sender_st is not None:
+                    LOG.error("Sender stack trace\n%s", sender_st)
                 raise RuntimeError(
                     "Message received for non-local actor: %r" % actor_id
                 )
@@ -137,6 +140,8 @@ class MPIRankActor:
                 LOG.exception(
                     "Target actor doesn't have requested method: %r, %r", actor, message
                 )
+                if sender_st is not None:
+                    LOG.error("Sender stack trace\n%s", sender_st)
                 raise
 
             try:
@@ -145,6 +150,8 @@ class MPIRankActor:
                 LOG.exception(
                     "Exception occured while processing message: %r, %r", actor, message
                 )
+                if sender_st is not None:
+                    LOG.error("Sender stack trace\n%s", sender_st)
                 raise
 
     def _stop(self):
@@ -202,7 +209,14 @@ class MPIRankActor:
         message: Message
             Message to be sent
         """
-        self.acomm.send(rank, (actor_id, message))
+        if __debug__:
+            sender_st = traceback.format_stack()
+            sender_st = "".join(sender_st)
+            sender_st = "Sender rank: %d\n%s" % (WORLD_RANK, sender_st)
+        else:
+            sender_st = None
+
+        self.acomm.send(rank, (actor_id, sender_st, message))
 
     def flush(self):
         """Flush out the send buffers."""
