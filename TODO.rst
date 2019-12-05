@@ -1,6 +1,8 @@
-# TODO
+TODO
+====
 
-* Write performance test
+* Write performance test::
+
     * At every timestep
         * Every actor
             * Computes for a random time period
@@ -10,12 +12,11 @@
     * Run the above for k timesteps
 
 * Allow sending large messages (split across multiple small ones)
+* Post one IRecv per rank
 
 * Compress the messages sent with lz4
 * Pack messages directly (instead of pickling)
-* Post one IRecv per rank
 * Use IBcast when broadcasting
 * Test Scatterv for sending to multiple nodes
 
-* Implement python multiprocessing backend
 * Implement zeromq backend
