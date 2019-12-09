@@ -14,7 +14,10 @@ WORLD_RANK = COMM_WORLD.Get_rank()
 WORLD_SIZE = COMM_WORLD.Get_size()
 
 MASTER_RANK = 0
+"""Constant used to refer to the designated master rank."""
+
 EVERY_RANK = -1
+"""Constant used to send a message to all ranks."""
 
 _MPI_RANK_ACTOR = None
 _NODES = None
