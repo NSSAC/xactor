@@ -5,7 +5,7 @@ from setuptools import setup
 package_name = "xactor"
 description = "An MPI based Actor framework"
 
-with open("README.md", "r") as fh:
+with open("README.rst", "r") as fh:
     long_description = fh.read()
 
 classifiers = """
