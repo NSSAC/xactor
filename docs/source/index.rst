@@ -34,12 +34,18 @@ Installation
 XActor depends on mpi4py which requires a MPI implementation
 and compiler tools be installed on the system.
 
-One can use pip to install XActor like follows::
+One can use pip to install XActor for PyPI as follows::
 
     $ pip install xactor
 
 Dependencies of XActor (including mpi4py) will be installed
 as part of the above pip command.
+
+To install xactor from source::
+
+    $ git clone https://github.com/NSSAC/xactor.git
+    $ cd xactor
+    $ pip install --editable .
 
 Hello World
 -----------
