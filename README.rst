@@ -9,7 +9,7 @@ Full documentation
 
 The full documentation is available at ``docs/source/index.rst``
 
-To view the documentation as HTML compile it as follows::
+To view the documentation as HTML, compile it as follows::
 
     $ git clone https://github.com/NSSAC/xactor.git
     $ cd xactor
