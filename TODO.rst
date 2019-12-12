@@ -20,3 +20,5 @@ TODO
 * Test Scatterv for sending to multiple nodes
 
 * Implement zeromq backend
+
+* Remove buffering if we use MPI?
