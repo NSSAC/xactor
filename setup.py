@@ -38,7 +38,6 @@ setup(
         "click",
         "click_completion",
         "mpi4py",
-        "more-itertools",
     ],
 
     url="http://github.com/parantapa/xactor",
