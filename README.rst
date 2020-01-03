@@ -20,7 +20,9 @@ have Anaconda/Miniconda setup on your system.
 Installation instructions for Anaconda can be found
 `here <https://docs.conda.io/projects/conda/en/latest/user-guide/install/>`_.
 After installation of Anaconda/Miniconda
-execute the following commands::
+execute the following commands:
+
+.. code:: bash
 
     $ conda create -n xactor -c conda-forge python=3 openmpi mpi4py
 
@@ -32,7 +34,9 @@ The following commands assume you are inside the above conda environment.
 Building the documentation from source
 ......................................
 
-To build and view the documentation as HTML, execute the following commands::
+To build and view the documentation as HTML, execute the following commands:
+
+.. code:: bash
 
     $ git clone https://github.com/NSSAC/xactor.git
     $ cd xactor
