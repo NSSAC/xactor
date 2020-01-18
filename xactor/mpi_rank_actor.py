@@ -1,10 +1,14 @@
 """MPI Rank Actor."""
 
+import os
 import traceback
 import logging
+import cProfile as profile
 
 from .mpi_acomm import AsyncCommunicator, WORLD_RANK
 
+PROFILE_DIR_EVAR = "XACTOR_PROFILE_DIR"
+SEND_TB_EVAR = "XACTOR_SEND_TRACEBACK"
 RANK_ACTOR_ID = "_rank_actor"
 LOG = logging.getLogger("%s.%d" % (__name__, WORLD_RANK))
 
@@ -21,12 +25,26 @@ class MPIRankActor:
 
         self.stopping = False
 
+        self.profile = None
+        self.send_traceback = False
+        if __debug__:
+            if PROFILE_DIR_EVAR in os.environ:
+                self.profile = profile.Profile()
+                self.profile.disable()
+            if SEND_TB_EVAR in os.environ:
+                self.send_traceback = True
+
     def _loop(self):
         """Loop through messages."""
         LOG.debug("Starting rank loop with %d actors", len(self.local_actors))
 
         while not self.stopping:
-            actor_id, sender_st, message = self.acomm.recv()
+            if __debug__:
+                actor_id, sender_st, message = self.acomm.recv()
+            else:
+                actor_id, message = self.acomm.recv()
+                sender_st = None
+
             if actor_id not in self.local_actors:
                 LOG.error("Message received for non-local actor: %r", actor_id)
                 if sender_st is not None:
@@ -34,8 +52,8 @@ class MPIRankActor:
                 raise RuntimeError(
                     "Message received for non-local actor: %r" % actor_id
                 )
-
             actor = self.local_actors[actor_id]
+
             try:
                 method = getattr(actor, message.method)
             except AttributeError:
@@ -47,7 +65,10 @@ class MPIRankActor:
                 raise
 
             try:
-                method(*message.args, **message.kwargs)
+                if __debug__ and self.profile is not None:
+                    self.profile.runcall(method, *message.args, **message.kwargs)
+                else:
+                    method(*message.args, **message.kwargs)
             except Exception:  # pylint: disable=broad-except
                 LOG.exception(
                     "Exception occured while processing message: %r, %r", actor, message
@@ -55,6 +76,11 @@ class MPIRankActor:
                 if sender_st is not None:
                     LOG.error("Sender stack trace\n%s", sender_st)
                 raise
+
+        if __debug__ and self.profile is not None:
+            self.profile.dump_stats(
+                "%s/%d.prof" % (os.environ[PROFILE_DIR_EVAR], WORLD_RANK)
+            )
 
     def _stop(self):
         """Stop the event loop after processing the current message."""
@@ -112,13 +138,16 @@ class MPIRankActor:
             Message to be sent
         """
         if __debug__:
-            sender_st = traceback.format_stack()
-            sender_st = "".join(sender_st)
-            sender_st = "Sender rank: %d\n%s" % (WORLD_RANK, sender_st)
-        else:
-            sender_st = None
+            if self.send_traceback:
+                sender_st = traceback.format_stack()
+                sender_st = "".join(sender_st)
+                sender_st = "Sender rank: %d\n%s" % (WORLD_RANK, sender_st)
+            else:
+                sender_st = None
 
-        self.acomm.send(rank, (actor_id, sender_st, message))
+            self.acomm.send(rank, (actor_id, sender_st, message))
+        else:
+            self.acomm.send(rank, (actor_id, message))
 
     def flush(self):
         """Flush out the send buffers."""
