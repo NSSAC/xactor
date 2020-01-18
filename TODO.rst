@@ -11,10 +11,6 @@ TODO
                 * Send the message to the destination
     * Run the above for k timesteps
 
-* Debug mode actor profiling
-    * Write profile info of the method calls
-    * Log time, src-rank, dst-rank, src-actor, dst-actor, method
-
 * Debug mode xactor framework profiling
   * Time to pack/unpack
 
