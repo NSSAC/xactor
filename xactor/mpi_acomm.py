@@ -17,7 +17,7 @@ if "XACTOR_BUFFER_SIZE" in os.environ:
     BUFFER_SIZE = int(os.environ["XACTOR_BUFFER_SIZE"])
 else:
     BUFFER_SIZE = 4194304  # 4MB
-HEADER_SIZE = 65536
+HEADER_SIZE = 1048576
 
 MAX_MESSAGE_SIZE = BUFFER_SIZE - HEADER_SIZE
 
@@ -40,6 +40,8 @@ class AsyncRawSender:
 
     def send(self, to, msg):
         """Send a messge."""
+        assert len(msg) <= BUFFER_SIZE
+
         if __debug__:
             LOG.log(DEBUG_FINER, "Sending %d bytes to %d", len(msg), to)
 

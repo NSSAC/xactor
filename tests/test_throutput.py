@@ -61,6 +61,7 @@ class Main:
                 return
 
             self.worker.ping()
+            #self.worker.ping(send_immediate=True)
 
 
 def test_througput():
