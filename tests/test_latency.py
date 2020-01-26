@@ -1,7 +1,7 @@
 """Test latency.
 
-Compute the average time to
-send one "message" from one rank to another.
+Compute the average time to send one "message"
+from one rank to another.
 """
 
 import sys
