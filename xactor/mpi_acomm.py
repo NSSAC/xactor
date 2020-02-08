@@ -5,7 +5,6 @@ import pickle
 import logging
 import queue
 import threading
-from unittest.mock import sentinel
 
 from mpi4py import MPI
 
@@ -25,11 +24,6 @@ DEBUG_FINE = logging.DEBUG - 1
 DEBUG_FINER = logging.DEBUG - 2
 
 LOG = logging.getLogger("%s.%d" % (__name__, WORLD_RANK))
-
-# Message used to stop AsyncReceiver
-StopAsyncReceiver = sentinel.StopAsyncReceiver
-NoMoreMessages = sentinel.NoMoreMessages
-
 
 class AsyncRawSender:
     """Manager for sending messages."""
@@ -107,8 +101,7 @@ class AsyncBufferedSender:
 
     def stop(self):
         """Send stop message to receiver thread."""
-        msg = pickle.dumps(StopAsyncReceiver, pickle.HIGHEST_PROTOCOL)
-        self.sender.send(WORLD_RANK, msg)
+        self.sender.send(WORLD_RANK, b"")
 
     def close(self):
         """Flush out any remaining messages and close the sender."""
@@ -148,11 +141,11 @@ class AsyncReceiver:
             if __debug__:
                 LOG.log(DEBUG_FINER, "Received %d bytes from %d", cnt, frm)
 
-            msgs = pickle.loads(buf[:cnt])
-            if msgs is StopAsyncReceiver:
+            if cnt == 0:
                 self.finished.set()
                 return
 
+            msgs = pickle.loads(buf[:cnt])
             if __debug__:
                 LOG.log(DEBUG_FINER, "Received %d messages from %d", len(msgs), frm)
             for msg in msgs:
