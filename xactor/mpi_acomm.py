@@ -1,10 +1,12 @@
 """MPI Async Communication Interface."""
 
+import io
 import os
 import pickle
 import logging
 import queue
 import threading
+import collections
 
 from mpi4py import MPI
 
@@ -12,18 +14,31 @@ COMM_WORLD = MPI.COMM_WORLD
 WORLD_RANK = COMM_WORLD.Get_rank()
 WORLD_SIZE = COMM_WORLD.Get_size()
 
-if "XACTOR_BUFFER_SIZE" in os.environ:
-    BUFFER_SIZE = int(os.environ["XACTOR_BUFFER_SIZE"])
+if "XACTOR_MAX_MSG_SIZE" in os.environ:
+    MAX_MESSAGE_SIZE = int(os.environ["XACTOR_MAX_MSG_SIZE"])
 else:
-    BUFFER_SIZE = 4194304  # 4MB
-HEADER_SIZE = 1048576
+    MAX_MESSAGE_SIZE = 4194304  # 4MB
 
-MAX_MESSAGE_SIZE = BUFFER_SIZE - HEADER_SIZE
+BUFFER_SIZE = 2 * MAX_MESSAGE_SIZE
 
 DEBUG_FINE = logging.DEBUG - 1
 DEBUG_FINER = logging.DEBUG - 2
 
 LOG = logging.getLogger("%s.%d" % (__name__, WORLD_RANK))
+
+
+def unpickle_buffer(buf):
+    """Read objects out of a buffer."""
+    reader = io.BytesIO(buf)
+    msgs = []
+    while True:
+        try:
+            msg = pickle.load(reader)
+            msgs.append(msg)
+        except EOFError:
+            break
+    return msgs
+
 
 class AsyncRawSender:
     """Manager for sending messages."""
@@ -32,17 +47,16 @@ class AsyncRawSender:
         """Initialize."""
         self.pending_sends = []
 
-    def send(self, to, msg):
+    def send(self, to, buf):
         """Send a messge."""
-        assert len(msg) <= BUFFER_SIZE
+        assert len(buf) <= BUFFER_SIZE
 
         if __debug__:
-            LOG.log(DEBUG_FINER, "Sending %d bytes to %d", len(msg), to)
+            LOG.log(DEBUG_FINER, "Sending %d bytes to %d", len(buf), to)
 
-        req = COMM_WORLD.Isend([msg, MPI.CHAR], dest=to)
+        req = COMM_WORLD.Isend([buf, MPI.CHAR], dest=to)
         self.pending_sends.append(req)
 
-        # Cleanup send requests that have already completed.
         indices = MPI.Request.Waitsome(self.pending_sends)
         if indices is not None:
             for index in sorted(indices, reverse=True):
@@ -63,41 +77,46 @@ class AsyncBufferedSender:
     def __init__(self):
         """Initialize."""
         self.sender = AsyncRawSender()
-        self.buffer = [[] for _ in range(WORLD_SIZE)]
+        self.buffer = [io.BytesIO() for _ in range(WORLD_SIZE)]
         self.buffer_size = [0 for _ in range(WORLD_SIZE)]
+        self.n_messages = [0 for _ in range(WORLD_SIZE)]
 
     def send(self, to, msg):
         """Send a messge."""
-        msg_len = len(msg)
+        pickle.dump(msg, self.buffer[to], pickle.HIGHEST_PROTOCOL)
 
-        if msg_len > MAX_MESSAGE_SIZE:
-            raise ValueError("Message too large %d > %d" % (msg_len, MAX_MESSAGE_SIZE))
+        old_bufsize = self.buffer_size[to]
+        new_bufsize = len(self.buffer[to].getbuffer())
+        msgsize = new_bufsize - old_bufsize
+        if msgsize > MAX_MESSAGE_SIZE:
+            raise ValueError("Message too large %d > %d" % (msgsize, MAX_MESSAGE_SIZE))
 
-        if self.buffer_size[to] + msg_len <= MAX_MESSAGE_SIZE:
-            self.buffer[to].append(msg)
-            self.buffer_size[to] += msg_len
+        self.buffer_size[to] = new_bufsize
+        self.n_messages[to] += 1
+
+        if new_bufsize < MAX_MESSAGE_SIZE:
+            return
+
+        self.do_flush(to)
+
+    def do_flush(self, to):
+        """Send out all buffered messages."""
+        buf = self.buffer[to].getbuffer()
+        if not buf:
             return
 
         if __debug__:
-            LOG.log(DEBUG_FINER, "Sending %s messages to %d", len(self.buffer[to]), to)
-        buf = pickle.dumps(self.buffer[to], pickle.HIGHEST_PROTOCOL)
+            LOG.log(DEBUG_FINER, "Sending %d messages to %d", self.n_messages[to], to)
         self.sender.send(to, buf)
-        self.buffer[to].clear()
-        self.buffer_size[to] = 0
 
-        self.buffer[to].append(msg)
-        self.buffer_size[to] += msg_len
+        self.buffer[to] = io.BytesIO()
+        self.buffer_size[to] = 0
+        self.n_messages[to] = 0
 
     def flush(self):
         """Flush out message buffers."""
         for to in range(WORLD_SIZE):
-            if self.buffer[to]:
-                if __debug__:
-                    LOG.log(DEBUG_FINER, "Sending %s messages to %d", len(self.buffer[to]), to)
-                buf = pickle.dumps(self.buffer[to], pickle.HIGHEST_PROTOCOL)
-                self.sender.send(to, buf)
-                self.buffer[to].clear()
-                self.buffer_size[to] = 0
+            self.do_flush(to)
 
     def stop(self):
         """Send stop message to receiver thread."""
@@ -113,7 +132,8 @@ class AsyncReceiver:
 
     def __init__(self):
         """Initialize."""
-        self.msgq = queue.Queue()
+        self.bufq = queue.Queue()
+        self.msgq = collections.deque()
         self.finished = threading.Event()
 
         self._receiver_thread = threading.Thread(target=self._keep_receiving)
@@ -121,10 +141,20 @@ class AsyncReceiver:
 
     def recv(self):
         """Receive a message."""
+        if self.msgq:
+            return self.msgq.popleft()
+
         if self.finished.is_set():
             raise StopIteration("Receiver was stopped.")
 
-        return self.msgq.get(block=True)
+        frm, buf = self.bufq.get(block=True)
+        msgs = unpickle_buffer(buf)
+        if __debug__:
+            LOG.log(DEBUG_FINER, "Received %d messages from %d", len(msgs), frm)
+        for msg in msgs:
+            self.msgq.append((frm, msg))
+
+        return self.msgq.popleft()
 
     def join(self):
         """Wait for the receiver thread to end."""
@@ -132,10 +162,11 @@ class AsyncReceiver:
 
     def _keep_receiving(self):
         """Code for the receiver thread."""
-        buf = bytearray(BUFFER_SIZE)
         while True:
+            buf = bytearray(BUFFER_SIZE)
             status = MPI.Status()
-            COMM_WORLD.Irecv([buf, MPI.CHAR]).Wait(status)
+            req = COMM_WORLD.Irecv([buf, MPI.CHAR])
+            req.Wait(status)
             frm = status.Get_source()
             cnt = status.Get_count()
             if __debug__:
@@ -145,11 +176,7 @@ class AsyncReceiver:
                 self.finished.set()
                 return
 
-            msgs = pickle.loads(buf[:cnt])
-            if __debug__:
-                LOG.log(DEBUG_FINER, "Received %d messages from %d", len(msgs), frm)
-            for msg in msgs:
-                self.msgq.put((frm, msg))
+            self.bufq.put((frm, buf[:cnt]))
 
 
 class AsyncCommunicator:
@@ -168,16 +195,14 @@ class AsyncCommunicator:
         if __debug__:
             LOG.log(DEBUG_FINE, "Sending to %d: %r", to, msg)
 
-        msg = pickle.dumps(msg, pickle.HIGHEST_PROTOCOL)
         if to == WORLD_RANK:
-            self.receiver.msgq.put((WORLD_RANK, msg))
+            self.receiver.msgq.append((WORLD_RANK, msg))
         else:
             self.sender.send(to, msg)
 
     def recv(self):
         """Receive a message."""
         frm, msg = self.receiver.recv()
-        msg = pickle.loads(msg)
         if __debug__:
             LOG.log(DEBUG_FINE, "Received from %d: %r", frm, msg)
         return msg
@@ -190,9 +215,15 @@ class AsyncCommunicator:
 
         self.receiver.join()
 
+        while self.receiver.msgq:
+            frm, msg = self.receiver.msgq.popleft()
+            LOG.warning("Unretrieved message from %d: %r", frm, msg)
+
         try:
             while True:
-                frm, msg = self.receiver.msgq.get(block=False)
-                LOG.warning("Unretrieved message: %d: %r", frm, msg)
+                frm, buf = self.receiver.bufq.get(block=False)
+                msgs = unpickle_buffer(buf)
+                for msg in msgs:
+                    LOG.warning("Unretrieved message from %d: %r", frm, msg)
         except queue.Empty:
             return
