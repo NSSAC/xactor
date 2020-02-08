@@ -50,13 +50,9 @@ class AsyncRawSender:
 
         # Cleanup send requests that have already completed.
         indices = MPI.Request.Waitsome(self.pending_sends)
-        if indices is None:
-            return
-
-        indices = set(indices)
-        self.pending_sends = [
-            r for i, r in enumerate(self.pending_sends) if i not in indices
-        ]
+        if indices is not None:
+            for index in sorted(indices, reverse=True):
+                del self.pending_sends[index]
 
     def close(self):
         """Wait for all pending send requests to finish."""
