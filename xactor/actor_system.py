@@ -121,7 +121,6 @@ def delete_actors(rank, actor_ids):
     message = Message("delete_actors", args=[actor_ids])
     send(rank, RANK_ACTOR_ID, message, immediate=True)
 
-
 def start(actor_id, cls, *args, **kwargs):
     """Start the actor system.
 
@@ -226,3 +225,17 @@ def node_ranks(node):
         List of ranks running on the given node.
     """
     return _NODE_RANKS[node]
+
+def local_actor(self, actor_id):
+    """Return the reference to the local actor.
+
+    Parameters
+    ----------
+    actor_id: str
+        ID of the already existing actor.
+
+    Returns
+    -------
+        A reference to the local actor or None if the actor doesn't exist.
+    """
+    return _MPI_RANK_ACTOR.local_actors.get(actor_id, None)

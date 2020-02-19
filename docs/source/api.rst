@@ -20,6 +20,11 @@ Sending Messages
 .. autofunction:: xactor.actor_system.send
 .. autofunction:: xactor.actor_system.flush
 
+Directly Accessing Local Actors
+-------------------------------
+
+.. autofunction:: xactor.actor_system.local_actor
+
 Nodes and Ranks
 ---------------
 
