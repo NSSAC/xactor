@@ -1,7 +1,6 @@
 """MPI Async Communication Interface."""
 
 import io
-import os
 import pickle
 import logging
 import queue
@@ -10,15 +9,13 @@ import collections
 
 from mpi4py import MPI
 
+from .evars import get_max_message_size
+
 COMM_WORLD = MPI.COMM_WORLD
 WORLD_RANK = COMM_WORLD.Get_rank()
 WORLD_SIZE = COMM_WORLD.Get_size()
 
-if "XACTOR_MAX_MSG_SIZE" in os.environ:
-    MAX_MESSAGE_SIZE = int(os.environ["XACTOR_MAX_MSG_SIZE"])
-else:
-    MAX_MESSAGE_SIZE = 4194304  # 4MB
-
+MAX_MESSAGE_SIZE = get_max_message_size()
 BUFFER_SIZE = 2 * MAX_MESSAGE_SIZE
 
 DEBUG_FINE = logging.DEBUG - 1

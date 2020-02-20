@@ -1,14 +1,13 @@
 """MPI Rank Actor."""
 
-import os
 import traceback
 import logging
 import cProfile as profile
 
-from .mpi_acomm import AsyncCommunicator, WORLD_RANK
 
-PROFILE_DIR_EVAR = "XACTOR_PROFILE_DIR"
-SEND_TB_EVAR = "XACTOR_SEND_TRACEBACK"
+from .mpi_acomm import AsyncCommunicator, WORLD_RANK
+from .evars import get_profile_dir, do_send_traceback
+
 RANK_ACTOR_ID = "_rank_actor"
 LOG = logging.getLogger("%s.%d" % (__name__, WORLD_RANK))
 
@@ -28,11 +27,10 @@ class MPIRankActor:
         self.profile = None
         self.send_traceback = False
         if __debug__:
-            if PROFILE_DIR_EVAR in os.environ:
+            if get_profile_dir() is not None:
                 self.profile = profile.Profile()
                 self.profile.disable()
-            if SEND_TB_EVAR in os.environ:
-                self.send_traceback = True
+            self.send_traceback = do_send_traceback()
 
     def _loop(self):
         """Loop through messages."""
@@ -78,9 +76,7 @@ class MPIRankActor:
                 raise
 
         if __debug__ and self.profile is not None:
-            self.profile.dump_stats(
-                "%s/%d.prof" % (os.environ[PROFILE_DIR_EVAR], WORLD_RANK)
-            )
+            self.profile.dump_stats("%s/%d.prof" % (get_profile_dir(), WORLD_RANK))
 
     def _stop(self):
         """Stop the event loop after processing the current message."""
