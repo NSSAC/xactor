@@ -12,13 +12,15 @@ class Greeter:
 # This the class of the `Main` actor.
 class Main:
     def main(self):
-        # Create a greeter on very rank.
         greeter_id = "greeter"
-        for rank in xa.ranks():
-            xa.create_actor(rank, greeter_id, Greeter)
+
+        # Create the actor proxy
+        every_greeter = xa.ActorProxy(xa.EVERY_RANK, greeter_id)
+
+        # Create the actors
+        every_greeter.create_actor(Greeter)
 
         # Send the greeters the greet message.
-        every_greeter = xa.ActorProxy(xa.EVERY_RANK, greeter_id)
         every_greeter.greet("world", send_immediate=True)
 
         # We are done now.

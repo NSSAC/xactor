@@ -1,7 +1,7 @@
 """Actor Proxy."""
 
 from .message import Message
-from .actor_system import send
+from .actor_system import send, create_actor
 
 class ActorProxy:
     """A proxy of an actor.
@@ -87,3 +87,17 @@ class ActorProxy:
     def __setstate__(self, state):
         """Set the state."""
         self._rank, self._actor_id = state
+
+    def create_actor(self, cls, *args, **kwargs):
+        """Create the remote actor.
+
+        Parameters
+        ----------
+        cls: type
+            Class used to instantiate the new actor
+        *args: list
+            Positional arguments for the constructor
+        **kwargs: dict
+            Keyword arguments for the constructor
+        """
+        create_actor(self._rank, self._actor_id, cls, *args, **kwargs)
