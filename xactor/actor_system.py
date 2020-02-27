@@ -7,8 +7,8 @@ from mpi4py import MPI
 
 from .message import Message
 from .mpi_rank_actor import MPIRankActor, RANK_ACTOR_ID
+from .mpi_acomm import COMM_WORLD
 
-COMM_WORLD = MPI.COMM_WORLD
 HOSTNAME = MPI.Get_processor_name()
 WORLD_RANK = COMM_WORLD.Get_rank()
 WORLD_SIZE = COMM_WORLD.Get_size()
