@@ -14,15 +14,6 @@ TODO
 * Debug mode xactor framework profiling
   * Time to pack/unpack
 
-* Allow sending large messages (split across multiple small ones)
-
 * Compress the messages sent with lz4
-* Pack messages directly (instead of pickling)
 * Use IBcast when broadcasting
 * Test Scatterv for sending to multiple nodes
-
-* Implement zeromq backend
-
-* Remove buffering if we use MPI?
-* Post one IRecv per rank?
-
