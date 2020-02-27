@@ -49,11 +49,11 @@ def get_min_send_size():
 
 def get_num_recv_buffers():
     """Return the number of recv buffers to post."""
-    evar = os.environ.get(NUM_RECV_BUFFERS_EV, "10")
+    evar = os.environ.get(NUM_RECV_BUFFERS_EV, "1")
     return int(evar)
 
 
 def get_max_send_buffers():
     """Return the maximum number of send buffers at a time."""
-    evar = os.environ.get(MAX_SEND_BUFFERS_EV, "3")
+    evar = os.environ.get(MAX_SEND_BUFFERS_EV, "2")
     return int(evar)
