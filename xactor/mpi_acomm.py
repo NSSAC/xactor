@@ -7,17 +7,23 @@ import collections
 
 from mpi4py import MPI
 
-from .evars import get_max_message_size
+from .evars import (
+    get_max_message_size,
+    get_min_send_size,
+    get_num_recv_buffers,
+    get_max_send_buffers,
+)
 
 COMM_WORLD = MPI.COMM_WORLD
 WORLD_RANK = COMM_WORLD.Get_rank()
 WORLD_SIZE = COMM_WORLD.Get_size()
 
 MAX_MESSAGE_SIZE = get_max_message_size()
-MIN_SEND_SIZE = 65536
+MIN_SEND_SIZE = get_min_send_size()
+NUM_RECV_BUFFERS = get_num_recv_buffers()
+MAX_SEND_BUFFERS = get_max_send_buffers()
+
 BUFFER_SIZE = 2 * MAX_MESSAGE_SIZE
-NUM_RECV_BUFFERS = 10
-MAX_SEND_BUFFERS = 3
 
 DEBUG_FINE = logging.DEBUG - 1
 DEBUG_FINER = logging.DEBUG - 2
@@ -126,6 +132,7 @@ class AsyncBufferedSender:
         """Flush out any remaining messages and close the sender."""
         self.sender.close()
 
+
 class AsyncReceiver:
     """Manager for receiving messages."""
 
@@ -183,6 +190,7 @@ class AsyncReceiver:
         self.stats.clear()
         self.reqs.clear()
         self.bufs.clear()
+
 
 class AsyncCommunicator:
     """Communicate with other processes."""
