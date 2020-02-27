@@ -18,7 +18,7 @@ class Main:
         every_greeter = xa.ActorProxy(xa.EVERY_RANK, greeter_id)
 
         # Create the actors
-        every_greeter.create_actor(Greeter)
+        every_greeter.create_actor_(Greeter)
 
         # Send the greeters the greet message.
         every_greeter.greet("world", send_immediate=True)

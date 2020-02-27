@@ -24,6 +24,13 @@ class ActorProxy:
     If present and true,
     it is taken to indicate that the `send` should be called
     with ``immediate=True``.
+
+    Attributes
+    ----------
+    rank_: int or list of ints
+        Rank of the remote actor (see `send` for details)
+    actor_id_: str
+        ID of the remote actor
     """
 
     def __init__(self, rank=None, actor_id=None):
@@ -36,8 +43,9 @@ class ActorProxy:
         actor_id: str
             ID of the remote actor
         """
-        self._rank = rank
-        self._actor_id = actor_id
+        self.rank_ = rank
+        self.actor_id_ = actor_id
+
         self._method = None
 
     def __getattr__(self, method):
@@ -76,19 +84,19 @@ class ActorProxy:
 
         immediate = kwargs.pop("send_immediate", False)
         message = Message(self._method, args, kwargs)
-        send(self._rank, self._actor_id, message, immediate)
+        send(self.rank_, self.actor_id_, message, immediate)
 
         self._method = None
 
     def __getstate__(self):
         """Return pickleable state."""
-        return (self._rank, self._actor_id)
+        return (self.rank_, self.actor_id_)
 
     def __setstate__(self, state):
         """Set the state."""
-        self._rank, self._actor_id = state
+        self.rank_, self.actor_id_ = state
 
-    def create_actor(self, cls, *args, **kwargs):
+    def create_actor_(self, cls, *args, **kwargs):
         """Create the remote actor.
 
         Parameters
@@ -100,4 +108,4 @@ class ActorProxy:
         **kwargs: dict
             Keyword arguments for the constructor
         """
-        create_actor(self._rank, self._actor_id, cls, *args, **kwargs)
+        create_actor(self.rank_, self.actor_id_, cls, *args, **kwargs)
