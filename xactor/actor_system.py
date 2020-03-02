@@ -55,7 +55,7 @@ def get_node_ranks():
     return nodes_, node_ranks_
 
 
-def send(rank, actor_id, message, immediate=False):
+def send(rank, actor_id, message, immediate=True):
     """Send the message to the given actor on the given rank.
 
     Parameters
@@ -69,7 +69,7 @@ def send(rank, actor_id, message, immediate=False):
     message: Message
         Message to be sent
     immediate: bool
-        If true flush out all send buffers
+        If true flush out buffer to destination ranks
     """
     if isinstance(rank, int):
         if rank == EVERY_RANK:
@@ -82,8 +82,8 @@ def send(rank, actor_id, message, immediate=False):
     for rank_ in ranks_:
         _MPI_RANK_ACTOR.send(rank_, actor_id, message)
 
-    if immediate:
-        _MPI_RANK_ACTOR.flush()
+        if immediate:
+            _MPI_RANK_ACTOR.flush(rank_)
 
 
 def create_actor(rank, actor_id, cls, *args, **kwargs):
@@ -173,9 +173,16 @@ def stop():
     send(EVERY_RANK, RANK_ACTOR_ID, message, immediate=True)
 
 
-def flush():
-    """Flush out the send buffers."""
-    _MPI_RANK_ACTOR.flush()
+def flush(rank=None):
+    """Flush out the send buffers.
+
+    Parameters
+    ----------
+    rank: int or None
+        If None, flush out all buffers
+        otherwise, flush out only the buffer to the given rank.
+    """
+    _MPI_RANK_ACTOR.flush(rank)
 
 
 def ranks():

@@ -145,6 +145,13 @@ class MPIRankActor:
         else:
             self.acomm.send(rank, (actor_id, message))
 
-    def flush(self):
-        """Flush out the send buffers."""
-        self.acomm.flush()
+    def flush(self, rank=None):
+        """Flush out the send buffers.
+
+        Parameters
+        ----------
+        rank: int or None
+            If None, flush out all buffers
+            otherwise, flush out only the buffer to the given rank.
+        """
+        self.acomm.flush(rank)

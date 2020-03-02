@@ -22,7 +22,7 @@ class Worker:
         self.main_actor = xa.ActorProxy(MASTER_RANK, "main")
 
     def ping(self):
-        self.main_actor.pong(send_immediate=True)
+        self.main_actor.pong()
 
 
 class Main:
@@ -37,7 +37,7 @@ class Main:
         xa.create_actor(WORKER_RANK, "worker", Worker)
 
         self.ping_start = perf_counter()
-        self.worker.ping(send_immediate=True)
+        self.worker.ping()
 
     def pong(self):
         time_taken = (perf_counter() - self.ping_start) / 2
@@ -55,7 +55,7 @@ class Main:
             return
 
         self.ping_start = perf_counter()
-        self.worker.ping(send_immediate=True)
+        self.worker.ping()
 
 
 def test_latency():

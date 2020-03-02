@@ -20,10 +20,10 @@ class ActorProxy:
     >>> send(rank, actor_id, message)
 
     NOTE: When constructing messages using actor proxy,
-    the keyword argument ``send_immediate`` is handled specially.
+    the keyword argument ``buffer_`` is handled specially.
     If present and true,
     it is taken to indicate that the `send` should be called
-    with ``immediate=True``.
+    with ``immediate=False``.
 
     Attributes
     ----------
@@ -67,10 +67,10 @@ class ActorProxy:
     def __call__(self, *args, **kwargs):
         """Setup the args and kwargs for the message and send it.
 
-        NOTE: The keyword argument `send_immediate` is handled specially.
+        NOTE: The keyword argument `buffer_` is handled specially.
         If present and true,
         it is taken to indicate that the `send` should be called
-        with ``immediate=True``.
+        with ``immediate=False``.
 
         Parameters
         ----------
@@ -82,7 +82,7 @@ class ActorProxy:
         if self._method is None:
             raise ValueError("Message method not set")
 
-        immediate = kwargs.pop("send_immediate", False)
+        immediate = not kwargs.pop("buffer_", False)
         message = Message(self._method, args, kwargs)
         send(self.rank_, self.actor_id_, message, immediate)
 

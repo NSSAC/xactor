@@ -123,9 +123,12 @@ class AsyncBufferedSender:
         self.buffer_size[to] = 0
         self.n_messages[to] = 0
 
-    def flush(self):
+    def flush(self, to=None):
         """Flush out message buffers."""
-        for to in range(WORLD_SIZE):
+        if to is None:
+            for to in range(WORLD_SIZE):
+                self.do_flush(to)
+        else:
             self.do_flush(to)
 
     def close(self):

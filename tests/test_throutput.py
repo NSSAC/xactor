@@ -57,11 +57,11 @@ class Main:
             cur_time = perf_counter()
             elapsed = cur_time - start_time
             if elapsed > RUNTIME:
-                self.worker.stop(cur_time, send_immediate=True)
+                self.worker.stop(cur_time)
                 return
 
-            self.worker.ping()
-            #self.worker.ping(send_immediate=True)
+            self.worker.ping(buffer_=True)
+            # self.worker.ping()
 
 
 def test_througput():

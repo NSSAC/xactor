@@ -21,7 +21,7 @@ class Main:
         every_greeter.create_actor_(Greeter)
 
         # Send the greeters the greet message.
-        every_greeter.greet("world", send_immediate=True)
+        every_greeter.greet("world")
 
         # We are done now.
         xa.stop()
