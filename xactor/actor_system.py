@@ -226,7 +226,7 @@ def node_ranks(node):
     """
     return _NODE_RANKS[node]
 
-def local_actor(self, actor_id):
+def local_actor(actor_id):
     """Return the reference to the local actor.
 
     Parameters
