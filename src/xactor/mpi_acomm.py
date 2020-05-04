@@ -32,86 +32,143 @@ LOG = logging.getLogger("%s.%d" % (__name__, WORLD_RANK))
 
 
 def unpickle_buffer(buf):
-    """Read objects out of a buffer."""
+    """Read pickled objects out of a buffer.
+
+    Parameters
+    ----------
+    buf : bytes-like object
+        The buffer to read the pickled objects from.
+
+    Returns
+    -------
+    objs : list of objects
+        List of pickled objects from the buffer.
+    """
     reader = io.BytesIO(buf)
-    msgs = []
+    objs = []
     while True:
         try:
-            msg = pickle.load(reader)
-            msgs.append(msg)
+            obj = pickle.load(reader)
+            objs.append(obj)
         except EOFError:
             break
-    return msgs
+    return objs
 
 
 class AsyncRawSender:
-    """Manager for sending messages."""
+    """Manager for async send requests.
+
+    Attributes
+    ----------
+    pending_reqs : list of MPI Request objects
+        List of pending send requests
+    pending_bufs : list of buffers
+        List of buffers corresponding to pending send requests
+    """
 
     def __init__(self):
         """Initialize."""
-        self.pending_sends = []
+        self.pending_reqs = []
+        self.pending_bufs = []
 
     def send(self, to, buf):
-        """Send a messge."""
+        """Send a messge.
+
+        Parameters
+        ----------
+        to : int
+            Rank of the destination.
+        buf : bytes-like object
+            The buffer containing data to send.
+        """
         assert len(buf) <= BUFFER_SIZE
 
         if __debug__:
             LOG.log(DEBUG_FINE, "Sending %d bytes to %d", len(buf), to)
 
         req = COMM_WORLD.Isend([buf, MPI.BYTE], dest=to, tag=0)
-        self.pending_sends.append(req)
+        self.pending_reqs.append(req)
+        self.pending_bufs.append(buf)
 
         if __debug__:
-            LOG.log(DEBUG_FINE, "%d send buffers pending", len(self.pending_sends))
+            LOG.log(DEBUG_FINE, "%d send requests in queue", len(self.pending_reqs))
 
-        if len(self.pending_sends) < MAX_SEND_BUFFERS:
-            indices = MPI.Request.Testsome(self.pending_sends)
+        if len(self.pending_reqs) < MAX_SEND_BUFFERS:
+            indices = MPI.Request.Testsome(self.pending_reqs)
         else:
-            indices = MPI.Request.Waitsome(self.pending_sends)
+            indices = MPI.Request.Waitsome(self.pending_reqs)
         if indices:
             for index in sorted(indices, reverse=True):
-                del self.pending_sends[index]
+                del self.pending_reqs[index]
+                del self.pending_bufs[index]
+
+        if __debug__:
+            LOG.log(
+                DEBUG_FINE, "%d send requests still pending", len(self.pending_reqs)
+            )
 
     def close(self):
         """Wait for all pending send requests to finish."""
-        if not self.pending_sends:
+        if not self.pending_reqs:
             return
 
-        MPI.Request.Waitall(self.pending_sends)
-        self.pending_sends.clear()
+        MPI.Request.Waitall(self.pending_reqs)
+        self.pending_reqs.clear()
+        self.pending_bufs.clear()
 
 
 class AsyncBufferedSender:
-    """Manager for sending messages."""
+    """Manager for sending messages (Python objects).
+
+    Attributes
+    ----------
+    sender : AsyncRawSender
+        The underlying raw sender object used to manage async send requests.
+    buffers : list of io.BytesIO
+        The BytesIO objects used to manage the buffers for each destination rank.
+    n_messages : list of int
+        The number of messages contained in each destination buffer.
+    """
 
     def __init__(self):
         """Initialize."""
         self.sender = AsyncRawSender()
-        self.buffer = [io.BytesIO() for _ in range(WORLD_SIZE)]
-        self.buffer_size = [0 for _ in range(WORLD_SIZE)]
+        self.buffers = [io.BytesIO() for _ in range(WORLD_SIZE)]
         self.n_messages = [0 for _ in range(WORLD_SIZE)]
 
     def send(self, to, msg):
-        """Send a messge."""
-        pickle.dump(msg, self.buffer[to], pickle.HIGHEST_PROTOCOL)
+        """Send a buffered messge.
 
-        old_bufsize = self.buffer_size[to]
-        new_bufsize = len(self.buffer[to].getbuffer())
+        Parameters
+        ----------
+        to : int
+            Rank of the destination.
+        msg : object
+            The object to be sent.
+        """
+        old_bufsize = len(self.buffers[to].getbuffer())
+        pickle.dump(msg, self.buffers[to], pickle.HIGHEST_PROTOCOL)
+        new_bufsize = len(self.buffers[to].getbuffer())
+        self.n_messages[to] += 1
+
         msgsize = new_bufsize - old_bufsize
         if msgsize > MAX_MESSAGE_SIZE:
             raise ValueError("Message too large %d > %d" % (msgsize, MAX_MESSAGE_SIZE))
 
-        self.buffer_size[to] = new_bufsize
-        self.n_messages[to] += 1
-
         if new_bufsize < MIN_SEND_SIZE:
             return
-
-        self.do_flush(to)
+        else:
+            self.do_flush(to)
 
     def do_flush(self, to):
-        """Send out all buffered messages."""
-        buf = self.buffer[to].getbuffer()
+        """Flush the buffer for the destination rank.
+
+        Parameters
+        ----------
+        to : int
+            Rank of the destination.
+        """
+        buf = self.buffers[to].getbuffer()
         if not buf:
             return
 
@@ -119,12 +176,18 @@ class AsyncBufferedSender:
             LOG.log(DEBUG_FINE, "Sending %d messages to %d", self.n_messages[to], to)
         self.sender.send(to, buf)
 
-        self.buffer[to] = io.BytesIO()
-        self.buffer_size[to] = 0
+        self.buffers[to] = io.BytesIO()
         self.n_messages[to] = 0
 
     def flush(self, to=None):
-        """Flush out message buffers."""
+        """Flush out buffers for the destination rank.
+
+        Parameters
+        ----------
+        to : int or None
+            Rank of the destination.
+            If to is None then flush out buffers for all destination ranks.
+        """
         if to is None:
             for to in range(WORLD_SIZE):
                 self.do_flush(to)
@@ -132,23 +195,45 @@ class AsyncBufferedSender:
             self.do_flush(to)
 
     def close(self):
-        """Flush out any remaining messages and close the sender."""
+        """Close the underlying sender."""
         self.sender.close()
 
 
 class AsyncReceiver:
-    """Manager for receiving messages."""
+    """Manager for async receive requests.
+
+    Attributes
+    ----------
+    bufs : list of bytearray
+        List of receive buffers
+    reqs : list of MPI Request
+        List of receive requests
+    stats : list of MPI Status
+        List of status objects
+    msgq : collections.deque
+        Queue of received messages
+    """
 
     def __init__(self):
         """Initialize."""
         self.bufs = [bytearray(BUFFER_SIZE) for _ in range(NUM_RECV_BUFFERS)]
         self.reqs = [COMM_WORLD.Irecv([buf, MPI.BYTE], tag=0) for buf in self.bufs]
         self.stats = [MPI.Status() for _ in self.bufs]
-
         self.msgq = collections.deque()
 
     def recv(self):
-        """Receive all messages."""
+        """Return any received messages.
+
+        If returned message queue is empty
+        this method will block until messges are available.
+
+        Returns
+        -------
+        frm : int
+            Rank of the source of the received messsage
+        msg : object
+            The received message.
+        """
         if self.msgq:
             indices = MPI.Request.Testsome(self.reqs, self.stats)
         else:
@@ -186,7 +271,7 @@ class AsyncReceiver:
         return self.msgq.popleft()
 
     def close(self):
-        """Wait for the receiver thread to end."""
+        """Cancel any pending receive requests."""
         for req in self.reqs:
             MPI.Request.Cancel(req)
 
@@ -196,7 +281,15 @@ class AsyncReceiver:
 
 
 class AsyncCommunicator:
-    """Communicate with other processes."""
+    """Manager of async send and receive requests.
+
+    Attributes
+    ----------
+    sender : AsyncBufferedSender
+        The send buffer manager
+    receiver : AsyncReceiver
+        The receive buffer manager
+    """
 
     def __init__(self):
         """Initialize."""
@@ -206,7 +299,15 @@ class AsyncCommunicator:
         self.flush = self.sender.flush
 
     def send(self, to, msg):
-        """Send a messge."""
+        """Send a messge.
+
+        Parameters
+        ----------
+        to : int
+            Rank of the destination.
+        msg : object
+            The object to be sent.
+        """
         if __debug__:
             LOG.log(DEBUG_FINER, "Sending to %d: %r", to, msg)
 
@@ -216,14 +317,22 @@ class AsyncCommunicator:
             self.sender.send(to, msg)
 
     def recv(self):
-        """Receive a message."""
+        """Wait for and return a received message.
+
+        Returns
+        -------
+        frm : int
+            Rank of the source of the received messsage
+        msg : object
+            The received message.
+        """
         frm, msg = self.receiver.recv()
         if __debug__:
             LOG.log(DEBUG_FINER, "Received from %d: %r", frm, msg)
         return msg
 
     def finish(self):
-        """Flush the sender and wait for receiver thread to finish."""
+        """Finalize the sender and receivers."""
         self.sender.flush()
         self.sender.close()
 
