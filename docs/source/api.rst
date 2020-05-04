@@ -54,3 +54,9 @@ Utilities
 ---------
 
 .. autofunction:: xactor.actor_system.getLogger
+
+Environment Variables
+---------------------
+
+.. automodule:: xactor.evars
+

@@ -15,3 +15,9 @@ MPI Async Communication Manager
 
 .. autoclass:: xactor.mpi_acomm.AsyncRawSender
   :members:
+
+MPI Rank Actor
+--------------
+
+.. autoclass:: xactor.mpi_rank_actor.MPIRankActor
+  :members:
