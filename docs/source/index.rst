@@ -73,7 +73,7 @@ Hello World
 The following code shows a simple "hello world" example
 using XActor.
 
-.. literalinclude:: ../../tests/test_hello.py
+.. literalinclude:: ../../tests/scripts/hello.py
 
 To execute the above program save it as ``hello.py``.
 
