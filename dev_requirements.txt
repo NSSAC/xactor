@@ -7,3 +7,5 @@ pytest-cov
 sphinx
 snakeviz
 ipython
+numpy
+scipy
