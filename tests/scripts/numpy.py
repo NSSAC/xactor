@@ -72,7 +72,7 @@ class Main:
         for worker in workers.values():
             worker.create_actor_(Worker, source, sink)
 
-def test_numpy():
+def main():
     if len(xa.ranks()) < 3:
         print("This program must be run with 3 or more ranks.")
         sys.exit(1)
@@ -80,4 +80,4 @@ def test_numpy():
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    test_numpy()
+    main()

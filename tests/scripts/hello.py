@@ -26,10 +26,10 @@ class Main:
         # We are done now.
         xa.stop()
 
-def test_greeter():
+def main():
     # Create the main actor
     xa.start("main", Main)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    test_greeter()
+    main()

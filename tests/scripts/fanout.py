@@ -86,9 +86,9 @@ class Main:
 
             xa.stop()
 
-def test_fanout():
+def main():
     xa.start("main", Main)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    test_fanout()
+    main()

@@ -58,7 +58,7 @@ class Main:
         self.worker.ping()
 
 
-def test_latency():
+def main():
     if len(xa.ranks()) != 2:
         print("This program must be run with exactly 2 ranks.")
         sys.exit(1)
@@ -67,4 +67,4 @@ def test_latency():
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    test_latency()
+    main()
