@@ -34,7 +34,7 @@ Installation
 XActor depends on mpi4py which requires a MPI implementation
 and compiler tools be installed on the system.
 
-Installing Open MPI and mpi4py inside a conda environment
+Installing MPICH and mpi4py inside a conda environment
 .........................................................
 
 To create a new virtual environment with conda,
@@ -44,10 +44,10 @@ Installation instructions for Anaconda can be found
 After installation of Anaconda/Miniconda
 execute the following commands::
 
-    $ conda create -n xactor -c conda-forge python=3 openmpi mpi4py
+    $ conda create -n xactor -c conda-forge python=3 mpich mpi4py
 
 The above command creates a new conda environment called ``xactor``
-with python, openmpi and mpi4py installed.
+with python, mpich and mpi4py installed.
 
 The following commands assume you are inside the above conda environment.
 
@@ -65,7 +65,7 @@ To install xactor from source::
 
     $ git clone https://github.com/NSSAC/xactor.git
     $ cd xactor
-    $ pip install --editable .
+    $ pip install -e .
 
 Hello World
 -----------

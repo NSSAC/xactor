@@ -4,15 +4,18 @@ XActor: A Distributed Actor Programming Framework
 XActor is a framework for doing distributed computing in Python,
 using the actor model of programming.
 
-Full documentation
-------------------
+XActor's documentation is hosted at https://xactor.readthedocs.io/en/latest
 
-The full documentation is available at ``docs/source/index.rst``
+Compiling latest documentation
+------------------------------
+
+To compile the latest version of the documentation from source,
+please check ``docs/source/index.rst``.
 
 XActor depends on mpi4py which requires a MPI implementation
 and compiler tools be installed on the system.
 
-Installing Open MPI and mpi4py inside a conda environment
+Installing MPICH and mpi4py inside a conda environment
 .........................................................
 
 To create a new virtual environment with conda,
@@ -24,10 +27,10 @@ execute the following commands:
 
 .. code:: bash
 
-    $ conda create -n xactor -c conda-forge python=3 openmpi mpi4py
+    $ conda create -n xactor -c conda-forge python=3 mpich mpi4py
 
 The above command creates a new conda environment called ``xactor``
-with python, openmpi and mpi4py installed.
+with python, mpich and mpi4py installed.
 
 The following commands assume you are inside the above conda environment.
 
@@ -40,7 +43,7 @@ To build and view the documentation as HTML, execute the following commands:
 
     $ git clone https://github.com/NSSAC/xactor.git
     $ cd xactor
-    $ pip install --editable .
-    $ pip install -r dev_requirements.txt
+    $ pip install -e .
+    $ pip install -r docs/requirements.txt
     $ make -C docs
     $ <BROWSER-COMMAND> docs/build/html/index.html
