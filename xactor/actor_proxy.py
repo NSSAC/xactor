@@ -1,7 +1,7 @@
 """Actor Proxy."""
 
 from .message import Message
-from .actor_system import send, create_actor
+from .actor_system import send, create_actor, send_buffer
 
 class ActorProxy:
     """A proxy of an actor.
@@ -64,6 +64,10 @@ class ActorProxy:
         self._method = method
         return self
 
+    def __repr__(self):
+        """Return a string representation of self."""
+        return "%s<rank=%s,actor_id=%r>" % (self.__class__.__name__, self.rank_, self.actor_id_)
+
     def __call__(self, *args, **kwargs):
         """Setup the args and kwargs for the message and send it.
 
@@ -109,3 +113,15 @@ class ActorProxy:
             Keyword arguments for the constructor
         """
         create_actor(self.rank_, self.actor_id_, cls, *args, **kwargs)
+
+    def send_buffer_(self, buf, tag):
+        """Send the buffer to the remote actor's rank.
+
+        Parameters
+        ----------
+        buf: buffer object
+            A python object with buffer interface.
+        tag: tag
+            An integer identifying the buffer on the receiving rank.
+        """
+        send_buffer(buf, self.rank_, tag)

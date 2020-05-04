@@ -30,6 +30,15 @@ DEBUG_FINER = logging.DEBUG - 2
 
 LOG = logging.getLogger("%s.%d" % (__name__, WORLD_RANK))
 
+def fmt_status(s):
+    """Return a formatted string status object."""
+    error = s.Get_error()
+    cancelled = s.Is_cancelled()
+    source = s.Get_source()
+    tag = s.Get_tag()
+    count = s.Get_count()
+    return f"Status<error={error}, cancelled={cancelled} source={source}, tag={tag}, count={count}>"
+
 
 def unpickle_buffer(buf):
     """Read objects out of a buffer."""
@@ -51,28 +60,40 @@ class AsyncRawSender:
         """Initialize."""
         self.reqs = []
         self.bufs = []
+        self.stats = []
 
     def send(self, to, buf, tag):
-        """Send a messge."""
-        assert len(buf) <= BUFFER_SIZE
+        """Send a message."""
+        if not isinstance(buf, memoryview):
+            buf = memoryview(buf)
+        nbytes = buf.nbytes
+
+        assert buf.contiguous, "Can only send contiguous buffers"
 
         if __debug__:
-            LOG.log(DEBUG_FINE, "Sending %d bytes to %d with tag = %d", len(buf), to, tag)
+            LOG.log(DEBUG_FINE, "Sending bytes: nbytes=%d, to=%d, tag=%d", nbytes, to, tag)
 
-        req = COMM_WORLD.Isend(buf, dest=to, tag=tag)
+        req = COMM_WORLD.Isend([buf, MPI.CHAR], dest=to, tag=tag)
         self.bufs.append(buf)
         self.reqs.append(req)
+        self.stats.append(MPI.Status())
 
         if __debug__:
-            LOG.log(DEBUG_FINE, "%d send buffers pending", len(self.reqs))
+            LOG.log(DEBUG_FINE, "Send buffers pending: %d", len(self.reqs))
 
         if len(self.reqs) < MAX_SEND_BUFFERS:
-            indices = MPI.Request.Testsome(self.reqs)
+            indices = MPI.Request.Testsome(self.reqs, self.stats)
         else:
-            indices = MPI.Request.Waitsome(self.reqs)
+            indices = MPI.Request.Waitsome(self.reqs, self.stats)
+
+        if __debug__:
+            LOG.log(DEBUG_FINER, "Send finished indices: %r of %d", indices, len(self.reqs))
+            for index in indices:
+                LOG.log(DEBUG_FINER, "Send status: %d: %s", index, fmt_status(self.stats[index]))
 
         if indices:
             for index in sorted(indices, reverse=True):
+                del self.stats[index]
                 del self.reqs[index]
                 del self.bufs[index]
 
@@ -82,8 +103,10 @@ class AsyncRawSender:
             return
 
         MPI.Request.Waitall(self.reqs)
+
         self.reqs.clear()
         self.bufs.clear()
+        self.stats.clear()
 
 
 class AsyncBufferedSender:
@@ -121,7 +144,7 @@ class AsyncBufferedSender:
             return
 
         if __debug__:
-            LOG.log(DEBUG_FINE, "Sending %d messages to %d", self.n_messages[to], to)
+            LOG.log(DEBUG_FINE, "Sending messages: nmessages=%d to=%d", self.n_messages[to], to)
         self.sender.send(to, buf, tag=0)
 
         self.buffer[to] = io.BytesIO()
@@ -146,44 +169,51 @@ class AsyncReceiver:
 
     def __init__(self):
         """Initialize."""
-        self.bufs = [bytearray(BUFFER_SIZE) for _ in range(NUM_RECV_BUFFERS)]
-        self.reqs = [COMM_WORLD.Irecv(buf, tag=0) for buf in self.bufs]
+        self.bufs = [memoryview(bytearray(BUFFER_SIZE)) for _ in range(NUM_RECV_BUFFERS)]
+        self.reqs = [COMM_WORLD.Irecv([buf, MPI.CHAR], tag=0) for buf in self.bufs]
         self.stats = [MPI.Status() for _ in self.bufs]
 
         self.msgq = collections.deque()
 
     def register_buffer(self, buf, tag):
-        """Register a buffer for receiveing."""
+        """Register a buffer for receiving."""
         assert tag > 0, "Custom buffers can only be received with tag > 0"
 
+        if not isinstance(buf, memoryview):
+            buf = memoryview(buf)
+        nbytes = buf.nbytes
+
+        assert buf.contiguous, "Can only receive into contiguous buffers."
+        assert not buf.readonly, "Can't receive into a readonly buffer."
+
+        if __debug__:
+            LOG.log(DEBUG_FINE, "Registering buffer: nbytes=%d, tag=%d", nbytes, tag)
+
         self.bufs.append(buf)
-        self.reqs.append(COMM_WORLD.Irecv(buf, tag=tag))
+        self.reqs.append(COMM_WORLD.Irecv([buf, MPI.CHAR], tag=tag))
         self.stats.append(MPI.Status())
 
     def recv(self):
         """Receive all messages."""
+        if self.msgq:
+            return self.msgq.popleft()
+
         while True:
-            # If msgq has something, we dont wait
-            if self.msgq:
-                indices = MPI.Request.Testsome(self.reqs, self.stats)
-            else:
-                indices = MPI.Request.Waitsome(self.reqs, self.stats)
+            indices = MPI.Request.Waitsome(self.reqs, self.stats)
 
-            # If we dont have any incoming messages
-            # but we got to this point in code
-            # then msgq must have messages
-            if not indices:
-                return self.msgq.popleft()
+            if __debug__:
+                LOG.log(DEBUG_FINER, "Receive finished indices: %r of %d", indices, len(self.reqs))
+                for index in indices:
+                    LOG.log(DEBUG_FINER, "Receive status: %d: %s", index, fmt_status(self.stats[index]))
 
-            # Process the recvs
+            assert indices
+
             num_message_buffers = 0
             for idx in sorted(indices):
                 status = self.stats[idx]
                 frm = status.Get_source()
                 cnt = status.Get_count()
                 tag = status.Get_tag()
-                if __debug__:
-                    LOG.log(DEBUG_FINE, "Received %d bytes from %d with tag %d", cnt, frm, tag)
                 buf = self.bufs[idx]
 
                 # If tag = 0
@@ -194,8 +224,10 @@ class AsyncReceiver:
                     buf = buf[:cnt]
                     msgs = unpickle_buffer(buf)
                     if __debug__:
-                        LOG.log(DEBUG_FINE, "Received %d messages from %d", len(msgs), frm)
+                        LOG.log(DEBUG_FINE, "Received messages: nmessages=%d from=%d", len(msgs), frm)
                     for msg in msgs:
+                        if __debug__:
+                            LOG.log(DEBUG_FINER, "Received from %d: %r", frm, msg)
                         self.msgq.append((frm, msg))
 
             # Delete the already used up stats, bufs, and reqs
@@ -206,9 +238,9 @@ class AsyncReceiver:
 
             # Recreate the consumed message buffers
             for _ in range(num_message_buffers):
-                buf = bytearray(BUFFER_SIZE)
+                buf = memoryview(bytearray(BUFFER_SIZE))
                 self.bufs.append(buf)
-                self.reqs.append(COMM_WORLD.Irecv(buf, tag=0))
+                self.reqs.append(COMM_WORLD.Irecv([buf, MPI.CHAR], tag=0))
                 self.stats.append(MPI.Status())
 
             # If msgq is not empty
@@ -218,6 +250,9 @@ class AsyncReceiver:
 
     def close(self):
         """Wait for the receiver thread to end."""
+        if not self.reqs:
+            return
+
         for req in self.reqs:
             MPI.Request.Cancel(req)
 
@@ -240,7 +275,7 @@ class AsyncCommunicator:
         self.register_buffer = self.receiver.register_buffer
 
     def send(self, to, msg):
-        """Send a messge."""
+        """Send a message."""
         if __debug__:
             LOG.log(DEBUG_FINER, "Sending to %d: %r", to, msg)
 
@@ -248,9 +283,7 @@ class AsyncCommunicator:
 
     def recv(self):
         """Receive a message."""
-        frm, msg = self.receiver.recv()
-        if __debug__:
-            LOG.log(DEBUG_FINER, "Received from %d: %r", frm, msg)
+        _, msg = self.receiver.recv()
         return msg
 
     def finish(self):

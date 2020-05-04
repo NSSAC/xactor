@@ -5,6 +5,7 @@ from .actor_system import (
     create_actor, delete_actors,
     start, stop,
     send, flush,
+    register_buffer, send_buffer,
     ranks, nodes, node_ranks, current_rank,
     getLogger,
     MASTER_RANK, EVERY_RANK,

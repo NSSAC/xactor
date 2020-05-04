@@ -155,3 +155,29 @@ class MPIRankActor:
             otherwise, flush out only the buffer to the given rank.
         """
         self.acomm.flush(rank)
+
+    def register_buffer(self, buf, tag):
+        """Register a buffer to receive data.
+
+        Parameters
+        ----------
+        buf: buffer object
+            A python object with a buffer interface.
+        tag: int
+            An integer (> 0) identifying the buffer on the current rank.
+        """
+        self.acomm.register_buffer(buf, tag)
+
+    def send_buffer(self, buf, to, tag):
+        """Send a buffer to the recipient rank.
+
+        Parameters
+        ----------
+        buf: buffer object
+            A python object with buffer interface.
+        to: int
+            Rank to which the buffer is to be sent.
+        tag: tag
+            An integer identifying the buffer on the receiving rank.
+        """
+        self.acomm.send_buffer(to, buf, tag)

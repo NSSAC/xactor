@@ -121,6 +121,7 @@ def delete_actors(rank, actor_ids):
     message = Message("delete_actors", args=[actor_ids])
     send(rank, RANK_ACTOR_ID, message, immediate=True)
 
+
 def start(actor_id, cls, *args, **kwargs):
     """Start the actor system.
 
@@ -233,6 +234,7 @@ def node_ranks(node):
     """
     return _NODE_RANKS[node]
 
+
 def local_actor(actor_id):
     """Return the reference to the local actor.
 
@@ -246,3 +248,31 @@ def local_actor(actor_id):
         A reference to the local actor or None if the actor doesn't exist.
     """
     return _MPI_RANK_ACTOR.local_actors.get(actor_id, None)
+
+
+def register_buffer(buf, tag):
+    """Register a buffer to receive data.
+
+    Parameters
+    ----------
+    buf: buffer object
+        A python object with a buffer interface.
+    tag: int
+        An integer (> 0) identifying the buffer on the current rank.
+    """
+    _MPI_RANK_ACTOR.register_buffer(buf, tag)
+
+
+def send_buffer(buf, to, tag):
+    """Send a buffer to the recipient rank.
+
+    Parameters
+    ----------
+    buf: buffer object
+        A python object with buffer interface.
+    to: int
+        Rank to which the buffer is to be sent.
+    tag: tag
+        An integer identifying the buffer on the receiving rank.
+    """
+    _MPI_RANK_ACTOR.send_buffer(buf, to, tag)
