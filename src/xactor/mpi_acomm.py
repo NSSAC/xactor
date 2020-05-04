@@ -58,7 +58,7 @@ class AsyncRawSender:
         if __debug__:
             LOG.log(DEBUG_FINE, "Sending %d bytes to %d", len(buf), to)
 
-        req = COMM_WORLD.Isend([buf, MPI.CHAR], dest=to, tag=0)
+        req = COMM_WORLD.Isend([buf, MPI.BYTE], dest=to, tag=0)
         self.pending_sends.append(req)
 
         if __debug__:
@@ -142,7 +142,7 @@ class AsyncReceiver:
     def __init__(self):
         """Initialize."""
         self.bufs = [bytearray(BUFFER_SIZE) for _ in range(NUM_RECV_BUFFERS)]
-        self.reqs = [COMM_WORLD.Irecv([buf, MPI.CHAR], tag=0) for buf in self.bufs]
+        self.reqs = [COMM_WORLD.Irecv([buf, MPI.BYTE], tag=0) for buf in self.bufs]
         self.stats = [MPI.Status() for _ in self.bufs]
 
         self.msgq = collections.deque()
@@ -180,7 +180,7 @@ class AsyncReceiver:
         for _ in indices:
             buf = bytearray(BUFFER_SIZE)
             self.bufs.append(buf)
-            self.reqs.append(COMM_WORLD.Irecv([buf, MPI.CHAR], tag=0))
+            self.reqs.append(COMM_WORLD.Irecv([buf, MPI.BYTE], tag=0))
             self.stats.append(MPI.Status())
 
         return self.msgq.popleft()
