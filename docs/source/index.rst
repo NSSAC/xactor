@@ -90,6 +90,7 @@ API
    :maxdepth: 2
 
    api
+   internal
 
 
 Indices and tables
