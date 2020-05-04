@@ -30,6 +30,7 @@ setup(
     long_description_content_type="text/x-rst",
 
     packages=[package_name],
+    package_dir={'': 'src'},
 
     use_scm_version=True,
     setup_requires=['setuptools_scm'],
