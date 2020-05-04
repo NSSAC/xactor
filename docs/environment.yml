@@ -1,0 +1,6 @@
+name: xactor-docs
+channels:
+  - conda-forge
+dependencies:
+  - mpich
+  - mpi4py
