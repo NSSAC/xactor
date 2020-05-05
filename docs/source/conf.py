@@ -22,7 +22,7 @@ copyright = '2019, Rector and Visitors of the University of Virginia'
 author = 'Parantapa Bhattacharya'
 
 # The full version, including alpha/beta/rc tags
-release = '0.1'
+release = 'latest'
 
 
 # -- General configuration ---------------------------------------------------
