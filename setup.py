@@ -3,7 +3,7 @@
 from setuptools import setup
 
 package_name = "xactor"
-description = "An MPI based Actor framework"
+description = "A Distributed Actor Programming Framework"
 
 with open("README.rst", "r") as fh:
     long_description = fh.read()
@@ -41,6 +41,6 @@ setup(
         "mpi4py",
     ],
 
-    url="http://github.com/parantapa/xactor",
+    url="http://github.com/nssac/xactor",
     classifiers=classifiers
 )
