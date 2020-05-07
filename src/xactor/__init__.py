@@ -2,7 +2,7 @@
 
 from .message import Message
 from .actor_system import (
-    create_actor, delete_actors,
+    create_actor, delete_actors, local_actor,
     start, stop,
     send, flush,
     ranks, nodes, node_ranks, current_rank,
