@@ -243,6 +243,7 @@ def local_actor(actor_id):
 
     Returns
     -------
+    object
         A reference to the local actor or None if the actor doesn't exist.
     """
     return _MPI_RANK_ACTOR.local_actors.get(actor_id, None)
