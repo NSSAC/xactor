@@ -78,6 +78,11 @@ class MPIRankActor:
         if __debug__ and self.profile is not None:
             self.profile.dump_stats("%s/%d.prof" % (get_profile_dir(), WORLD_RANK))
 
+        LOG.debug("Rank loop stopped; Clearing out %d local actors", len(self.local_actors))
+        self.local_actors.clear()
+
+        LOG.debug("Rank loop exiting")
+
     def _stop(self):
         """Stop the event loop after processing the current message."""
         LOG.debug("Received stop message")
