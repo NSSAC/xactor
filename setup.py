@@ -38,6 +38,7 @@ setup(
     install_requires=[
         "click",
         "click_completion",
+        "setproctitle",
         "mpi4py",
     ],
 

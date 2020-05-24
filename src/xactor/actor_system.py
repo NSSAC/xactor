@@ -4,6 +4,7 @@ import logging
 from collections import defaultdict
 
 from mpi4py import MPI
+from setproctitle import setproctitle, getproctitle
 
 from .message import Message
 from .mpi_rank_actor import MPIRankActor, RANK_ACTOR_ID
@@ -144,6 +145,10 @@ def start(actor_id, cls, *args, **kwargs):
     try:
         if _MPI_RANK_ACTOR is not None:
             raise ValueError("The actor system has already been started.")
+
+        oldproctitle = getproctitle()
+        newproctitle = "Rank %d of %d: %s" % (WORLD_RANK, WORLD_SIZE, oldproctitle)
+        setproctitle(newproctitle)
 
         COMM_WORLD.Barrier()
 
