@@ -1,5 +1,8 @@
 """A simple actor system API built on top of MPI."""
 
+import sys
+import signal
+import traceback
 import logging
 from collections import defaultdict
 
@@ -25,6 +28,16 @@ _NODES = None
 _NODE_RANKS = None
 
 LOG = logging.getLogger("%s.%d" % (__name__, WORLD_RANK))
+
+
+def _print_stack(sig, stack):
+    """Signal handler for printing stack trace."""
+    print(
+        "Rank %d received signal %d; Printing stack trace" % (WORLD_RANK, sig),
+        file=sys.stderr,
+    )
+    traceback.print_stack(stack, file=sys.stderr)
+    sys.stderr.flush()
 
 
 def getLogger(name):
@@ -122,6 +135,7 @@ def delete_actors(rank, actor_ids):
     message = Message("delete_actors", args=[actor_ids])
     send(rank, RANK_ACTOR_ID, message, immediate=True)
 
+
 def start(actor_id, cls, *args, **kwargs):
     """Start the actor system.
 
@@ -146,8 +160,12 @@ def start(actor_id, cls, *args, **kwargs):
         if _MPI_RANK_ACTOR is not None:
             raise ValueError("The actor system has already been started.")
 
+        # Setup USR1 signal to print stack trace
+        signal.signal(signal.SIGUSR1, _print_stack)
+
+        # Show rank of the process in title
         oldproctitle = getproctitle()
-        newproctitle = "Rank %d of %d: %s" % (WORLD_RANK, WORLD_SIZE, oldproctitle)
+        newproctitle = "Rank %d: %s" % (WORLD_RANK, oldproctitle)
         setproctitle(newproctitle)
 
         COMM_WORLD.Barrier()
@@ -237,6 +255,7 @@ def node_ranks(node):
         List of ranks running on the given node.
     """
     return _NODE_RANKS[node]
+
 
 def local_actor(actor_id):
     """Return the reference to the local actor.
